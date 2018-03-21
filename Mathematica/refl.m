@@ -2,27 +2,89 @@
 
 BeginPackage["refl`"]
 
-refl::usage = "refl is a collection of routines related to finding optical and physical properties of thin film optics.  It includes the routines parrattR, parrattRough, matR, imdFile, imdMenu, imdIndex, imdIndexAt, imdIndexFunction."
+refl::usage = "refl is a collection of routines related to finding optical and physical \
+properties of thin film optics.  It includes the routines parrattR, parrattRough, matR, \
+imdFile, imdMenu, imdIndex, imdIndexAt, imdIndexFunction."
 
-matR::usage = "matR[nd, theta, lambda, fractionS] returns a two element list with the reflectance and transmittance of a stack of thin films on a substrate (which could be a vacuum).  [At this point, the transmittance is not yet implemented.]  The list nd is a list of index of refraction/thickness pairs with the substrate as the first element and the vacuum usually as the last element.  The thickness of the substrate and vacuum layers should be set to zero.  The argument theta is the angle of incidence and reflection measured from grazing on the vacuum side in degrees.  The lambda argument is the wavelength wavelength using the same units as the layer thickness.  The fractionS argument is the intensity of the s-polarized component of the incident light.  This calculation is slower than using the Parratt formula if only reflection is desired."
+matR::usage = "matR[nd, theta, lambda] returns a two element list with the reflectance\
+and transmittance of a stack of thin films on a substrate (which could be a vacuum). \
+[At this point, the transmittance is not yet implemented.] The list nd is a list of index \
+of refraction/thickness pairs with the substrate as the first element and the vacuum usually\
+as the last element. The thickness of the substrate and vacuum layers should be set to zero. \
+The thickness should be in nanometers (nm). \
+The argument theta is the angle of incidence and reflection measured from grazing on the \
+vacuum side in degrees. The lambda argument is the wavelength in nm. \
+This calculation is slower than using the Parratt formula if only reflection is desired."
 
-parrattR::usage = "parrattR[nd, theta, lambda, fractionS] returns the reflectance of a stack of thin films on a substrate (which could be a vacuum). The list nd is a list of index of refraction/thickness pairs with the substrate as the first element and the vacuum usually as the last element.  The thickness of the substrate and vacuum layers should be set to zero.  The argument theta is the angle of incidence and reflection measured from grazing on the vacuum side in degrees.  The lambda argument is the wavelength wavelength using the same units as the layer thickness.  The fractionS argument is the intensity of the s-polarized component of the incident light.  This calculation is faster than using the matrix formula in matR if only reflection is desired."
+parrattR::usage = "parrattR[nd, theta, lambda] returns the reflectance of a stack of thin \
+films on a substrate (which could be a vacuum). The list nd is a list of index of \
+refraction/thickness pairs with the substrate as the first element and the vacuum usually \
+as the last element.  The thickness of the substrate and vacuum layers should be set to zero. \
+The thickness should be in nanometers (nm). \
+The argument theta is the angle of incidence and reflection measured from grazing on the \
+vacuum side in degrees. The lambda argument is the wavelength in nm. \
+This calculation is faster than using the matrix formula in matR if only reflection is desired."
 
-parrattRough::usage = "parrattRough[nd, theta, lambda, fractionS, sigma] returns the reflectance of a stack of thin films on a substrate (which could be a vacuum). The list nd is a list of index of refraction/thickness pairs with the substrate as the first element and the vacuum usually as the last element.  The thickness of the substrate and vacuum layers should be set to zero.  The argument theta is the angle of incidence and reflection measured from grazing on the vacuum side in degrees.  The lambda argument is the wavelength wavelength using the same units as the layer thickness.  The fractionS argument is the intensity of the s-polarized component of the incident light.  The calculation is corrected for roughness of the top interface between the vacuum and top layer having a surface rms roughness of sigma using the Debye-Waller correction. This calculation is faster than using the matrix formula in matR if only reflection is desired."
+parrattRough::usage = "parrattRough[nd, theta, lambda, sigma] returns the reflectance of a \
+stack of thin films on a substrate (which could be a vacuum). \
+The list nd is a list of index of refraction/thickness pairs with the substrate as the \
+first element and the vacuum usually as the last element. \
+The thickness of the substrate and vacuum layers should be set to zero. \
+The thickness should be in nanometers (nm). \
+The argument theta is the angle of incidence and reflection measured from grazing \
+on the vacuum side in degrees. The lambda argument is the wavelength in nm. \
+The calculation is corrected for roughness between each layer having a surface rms \
+roughness of sigma \
+using the Debye-Waller correction for the top layer and the Nevot-Croce correction
+between subsequent layers. The sigma list should have one fewer element than nd. \
+This calculation is faster than using the matrix formula in matR if only reflection is desired."
 
 imdFile::usage = "imdFile[] returns a list of strings of filenames with index of refraction in them."
 
-imdMenu::usage = "imdMenu[selection] draws a menu button which returns the selected file name with index of refraction data as the value of the argument selection on return."
+imdMenu::usage = "imdMenu[selection] draws a menu button which returns the selected file \
+name with index of refraction data as the value of the argument selection on return."
 
 imdIndex::usage = "imdIndex[file] returns a list of the complex index of refraction stored in file."
 
-imdIndexAt::usage = "imdIndexAt[file, wavelength] returns the complex index of refraction from file interpolated to the given wavelength measured in nanometers."
+imdIndexAt::usage = "imdIndexAt[file, wavelength] returns the complex index of refraction from \
+file interpolated to the given wavelength measured in nanometers."
 
-imdIndexFunction::usage = "imdIndexFunction[file] returns the interpolation function of the index of refraction in file."
+imdIndexFunction::usage = "imdIndexFunction[file] returns the interpolation function of the \
+index of refraction in file."
 
 Begin["`Private`"]
 
-matR[nd_, theta_, lambda_, percentS_]:=Module[{rs,ts, rp, tp, ky,ki, kzi, Ci, A, B,rmats, rm, rmatp},
+ddat={{1.05685*^1,0.937888},
+{1.40446*^1,0.926536},
+{1.75270*^1,0.915094},
+{2.25761*^1,0.902016},
+{2.95528*^1,0.885600},
+{3.80743*^1,0.870842},
+{4.67841*^1,0.857696},
+{5.74863*^1,0.844550},
+{7.06822*^1,0.826362},
+{8.69072*^1,0.808173},
+{1.15690*^2,0.783378},
+{1.46820*^2,0.763555},
+{1.83342*^2,0.747070},
+{2.40104*^2,0.727294},
+{3.04907*^2,0.702429},
+{3.99133*^2,0.686013},
+{5.14002*^2,0.674616},
+{6.72413*^2,0.663242},
+{9.06564*^2,0.661998},
+{1.04406*^3,0.663885}};
+{energy,pol}=Transpose[ddat];
+ldat=Transpose[{Log[energy],pol}];
+
+fracS[lambda_]:=Module[{eV, pol, intFunc},
+eV=1239.8/lambda; (* Divide hc by lambda to get eV, assuming lambda is in nm *)
+intFunc = Interpolation[ldat];
+pol=intFunc[Log[eV]];
+(pol+1)/2]
+
+matR[nd_, theta_, lambda_]:=Module[{rs,ts, rp, tp, ky,ki, kzi, Ci, A, B,rmats, rm, rmatp,
+percentS},
 ky=2*Pi*Cos[theta*Pi/180]/lambda;
        ki[ni_]:=2*Pi*ni/lambda;
        kzi[ni_]:=Sqrt[ki[ni]^2-ky^2];
@@ -31,7 +93,6 @@ rmats[n1_, n2_, d1_, d2_]:= Module[{kz1, kz2, fs12, gs12, fs21, gs21, C1, C2},
 kz1=kzi[n1];
 kz2=kzi[n2];
 fs12=(kz1-kz2)/(kz1+kz2);
-(* Print[StringForm["fs12=``",fs12]]; *)
 gs12=2kz1/(kz1+kz2);
 fs21=-fs12;
 gs21=2kz2/(kz1+kz2);
@@ -59,7 +120,6 @@ fp12*C1/(gp12*C2)},
 ];
 A={{1,0},{0,1}};
 B=A;
-(* Print[A]; *)
 For[i=2, i<=Length[nd], i++,
 A=rmats[nd[[i,1]], nd[[i-1,1]],nd[[i,2]],nd[[i-1,2]]].A;
 B=rmatp[nd[[i,1]], nd[[i-1,1]],nd[[i,2]],nd[[i-1,2]]].B;
@@ -69,51 +129,51 @@ rs=ts*A[[1,2]];
 tp=1/B[[2,2]];
 rp=tp*B[[1,2]];
 (* Returning the transmission is a bit subtle.  I'll save that for later *)
+percentS=fracS[lambda];
 percentS*Abs[rs]^2+(1-percentS)*Abs[rp]^2
 ]
 
-parrattR[nd_, theta_, lambda_, percentS_]:=Module[{rs, rp, Si, fs, fp, k, Ci, f, Ci12},
+parrattR[nd_, theta_, lambda_]:=Module[{rs, rp, Si, fs, fp, k, Ci, f, Ci12, percentS},
 k:=2*Pi/lambda;
 Si[ni_]:=Sqrt[ni^2-Cos[theta*Pi/180]^2];
-Ci[ni_, di_]:=Exp[2*I*k*Si[ni]*di];fs[n1_, n2_]:=(Si[n1]-Si[n2])/(Si[n1]+Si[n2]);
+Ci[ni_, di_]:=Exp[2*I*k*Si[ni]*di];
+fs[n1_, n2_]:=(Si[n1]-Si[n2])/(Si[n1]+Si[n2]);
 fp[n1_, n2_]:=(n2^2*Si[n1]-n1^2*Si[n2])/(n2^2*Si[n1]+n1^2*Si[n2]);
 rs=0;
 rp=0;
 For[i=2, i<=Length[nd],i++,
-f=fs[nd[[i,1]],nd[[i-1,1]]];
-Ci12=Ci[nd[[i,1]],nd[[i,2]]];
-rs=Ci12*(f+rs)/(1+f*rs); 
-f=fp[nd[[i,1]], nd[[i-1,1]]];
-rp=Ci12*(f+rp)/(1+f*rp);
+	f=fs[nd[[i,1]],nd[[i-1,1]]];
+	Ci12=Ci[nd[[i,1]],nd[[i,2]]];
+	rs=Ci12*(f+rs)/(1+f*rs); 
+	f=fp[nd[[i,1]], nd[[i-1,1]]];
+	rp=Ci12*(f+rp)/(1+f*rp);
 ];
-(* Print[StringForm["rs=`` rp=``",rs, rp]]; *)
+percentS=fracS[lambda];
 percentS*Abs[rs]^2+(1-percentS)*Abs[rp]^2
 ]
 
-parrattRough[nd_, theta_, lambda_, percentS_, sigma_]:=Module[{rs, rp, Si, fs, fp, k, Ci, f, Ci12, q, dbf},
+parrattRough[nd_, theta_, lambda_, sigma_]:=Module[{rs, rp, Si, fs, fp, k, Ci, f, Ci12,
+	q1, q2, dbf, percentS, atten},
 k:=2*Pi/lambda;
 Si[ni_]:=Sqrt[ni^2-Cos[theta*Pi/180]^2];
-Ci[ni_, di_]:=Exp[2*I*k*Si[ni]*di];fs[n1_, n2_]:=(Si[n1]-Si[n2])/(Si[n1]+Si[n2]);
+Ci[ni_, di_]:=Exp[2*I*k*Si[ni]*di];
+fs[n1_, n2_]:=(Si[n1]-Si[n2])/(Si[n1]+Si[n2]);
 fp[n1_, n2_]:=(n2^2*Si[n1]-n1^2*Si[n2])/(n2^2*Si[n1]+n1^2*Si[n2]);
 rs=0;
 rp=0;
 For[i=2, i<=Length[nd],i++,
-f=fs[nd[[i,1]],nd[[i-1,1]]];
-If[i==Length[nd],
-	q=4 Pi Re[nd[[i-1,1]]]/lambda Sin[theta*Pi/180];
-	f=f*Exp[-q^2 sigma^2/2];
+	f=fs[nd[[i,1]],nd[[i-1,1]]];
+	q1=4 Pi Re[nd[[i-1,1]]]/lambda Sin[theta*Pi/180];
+	q2=4 Pi Re[nd[[i,1]]]/lambda Sin[theta*Pi/180];
+	atten=Exp[-q1 q2 sigma[[i-1]]^2/2];
+	f=f*atten;
+	Ci12=Ci[nd[[i,1]],nd[[i,2]]];
+	rs=Ci12*(f+rs)/(1+f*rs); 
+	f=fp[nd[[i,1]], nd[[i-1,1]]];
+	f=f*atten;
+	rp=Ci12*(f+rp)/(1+f*rp);
 ];
-Ci12=Ci[nd[[i,1]],nd[[i,2]]];
-rs=Ci12*(f+rs)/(1+f*rs); 
-f=fp[nd[[i,1]], nd[[i-1,1]]];
-If[i==Length[nd],
-	(* Print["f before ",f]; *)
-	f=f*Exp[-q^2 sigma^2/2];
-	(* Print["f after ", f]; *)
-]; (* sigma^2/2?? *)
-rp=Ci12*(f+rp)/(1+f*rp);
-];
-(* Print[StringForm["rs=`` rp=``",rs, rp]]; *)
+percentS=fracS[lambda];
 percentS*Abs[rs]^2+(1-percentS)*Abs[rp]^2
 ]
 
