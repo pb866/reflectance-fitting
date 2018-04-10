@@ -75,6 +75,7 @@ def fracs(lam):
     Example
     -------
     >>> fracs(25.1)
+    0.9272135287221943
     """
     ev=np.log10(1239.8/lam)
     return (frfunc(ev)+1)/2
