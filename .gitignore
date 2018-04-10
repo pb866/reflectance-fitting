@@ -3,3 +3,4 @@ Matlab/.DS_Store
 *.mat
 Matlab/Fitting/
 Matlab/Tutorials/
+*.pyc
