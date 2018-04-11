@@ -186,3 +186,33 @@ def fracs(lam):
     """
     ev=np.log10(1239.8/lam)
     return (frfunc(ev)+1)/2
+
+import pandas
+from scipy.interpolate import interp1d
+
+class Index:
+    """ Index of refraction from volta
+    
+    Constructor Parameters
+    ----------------------
+    material : string
+        material from base of .nk file on volta
+    
+    Method
+    ------
+    at(wavelength) : returns interpolated index at the given
+        wavelength in nm. Wavelength can by an np.array
+    
+    Example
+    -------
+    alndx=Index('Al')
+    lam=np.linspace(10,400,200)
+    ndx=alndx.at(lam)
+    """
+    def __init__(self, material):
+        df=pandas.read_table("http://volta.byu.edu/nk/"+material+".nk",
+                           comment=';',delim_whitespace=True)
+        val=df.values
+        lam=val[:,0]/10
+        ndx=val[:,1]+val[:,2]*1j
+        self.at=interp1d(lam,ndx)
