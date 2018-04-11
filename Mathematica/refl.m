@@ -6,7 +6,7 @@ refl::usage = "refl is a collection of routines related to finding optical and p
 properties of thin film optics.  It includes the routines parrattR, parrattRough, matR, \
 imdFile, imdMenu, imdIndex, imdIndexAt, imdIndexFunction."
 
-matR::usage = "matR[nd, theta, lambda] returns a two element list with the reflectance\
+matR::usage = "matR[nd, theta, lambda] returns a two element list with the reflectance \
 and transmittance of a stack of thin films on a substrate (which could be a vacuum). \
 [At this point, the transmittance is not yet implemented.] The list nd is a list of index \
 of refraction/thickness pairs with the substrate as the first element and the vacuum usually\

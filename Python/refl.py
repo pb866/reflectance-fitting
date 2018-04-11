@@ -4,6 +4,16 @@ Created on Tue Aug  4 15:45:52 2015
 
 @author: rst
 """
+#
+# As you're developing this, you'll need to reimport this as it is
+# updated. The following code fragment will do that for you:
+# import importlib
+# importlib.reload(refl)
+#
+# Testing: matR checked against Matlab refl.m code. Answers a sub-answers
+# agreed to within 6 significant digits. I attribute the difference to
+# interpolation differences.
+
 import math
 import numpy as np
 import scipy.interpolate as intp
@@ -60,13 +70,16 @@ def matR(n, t, thetad, lam, sigma):
         C2=Ci(n2,d2)
         return np.array([[gp21*C1*C2-fp21*fp12*C1*C2/gp12,
                           fp12*C1/(gp12*C2)],
-                        [-fp12*C2/(gp12*C1),
+                        [-fp21*C2/(gp12*C1),
                          1/(gp12*C1*C2)]])
     A=np.identity(2)
     B=A
-    for i in range(n.size-1,1,-1):
-        A=np.matmul(rmats(n[i], n[i-1], t[i], t[i-1]),A)
-        B=np.matmul(rmatp(n[i], n[i-1], t[i], t[i-1]),B)
+    for i in range(n.size-1,0,-1):
+        A=np.matmul(rmats(n[i-1], n[i], t[i-1], t[i]),A)
+        B=np.matmul(rmatp(n[i-1], n[i], t[i-1], t[i]),B)
+#        print("When i="+str(i))
+#        print("   A="+str(A))
+#        print("   B="+str(B))
     ts=1/A[1,1]
     rs=ts*A[0,1]
     tp=1/B[1,1]
