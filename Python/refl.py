@@ -87,7 +87,7 @@ def matR(n, t, thetad, lam, sigma):
     try:
         percentS=fracs(lam)
     except ValueError:
-        percentS=1
+        percentS=1.0
     r=percentS*np.abs(rs)**2+(1-percentS)*np.abs(rp)**2
     # This assumes starting and ending materials are the same
     t=percentS*np.abs(ts)**2+(1-percentS)*np.abs(tp)**2
@@ -218,4 +218,4 @@ class Index:
         val=df.values
         lam=val[:,0]/10
         ndx=val[:,1]+val[:,2]*1j
-        self.at=interp1d(lam,ndx)
+        self.at=interp1d(lam,ndx,'cubic')
