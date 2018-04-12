@@ -84,7 +84,10 @@ def matR(n, t, thetad, lam, sigma):
     rs=ts*A[0,1]
     tp=1/B[1,1]
     rp=tp*B[0,1]
-    percentS=fracs(lam)
+    try:
+        percentS=fracs(lam)
+    except ValueError:
+        percentS=1
     r=percentS*np.abs(rs)**2+(1-percentS)*np.abs(rp)**2
     # This assumes starting and ending materials are the same
     t=percentS*np.abs(ts)**2+(1-percentS)*np.abs(tp)**2
