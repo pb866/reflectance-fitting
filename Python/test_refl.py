@@ -13,6 +13,7 @@ class refl_test(unittest.TestCase):
     def setUp(self):
         self.AlIndex = refl.Index('Al')
         self.SiIndex = refl.Index('Si')
+        self.SiO2Index = refl.Index('SiO2')
 
     def test_Al(self):
         self.assertAlmostEqual(self.AlIndex.at(30.4),0.951+0.006j,3)
@@ -31,6 +32,16 @@ class refl_test(unittest.TestCase):
         
     def test_s_pol(self):
         self.assertAlmostEqual(refl.fracs(30.4),0.93,2)
+        
+    def test_matR_refl_comp(self):
+        lam = 15
+        n = np.array([1, self.AlIndex.at(lam), self.SiO2Index.at(lam)])
+        t = np.array([0, 20, 0])
+        thetad = 20
+        rp = refl.Parratt(n, t, thetad, lam)
+        rm = refl.matR(n, t, thetad, lam)[0]
+        self.assertAlmostEqual(rm, 0.01260649028, 7)
+        self.assertAlmostEqual(rp, rm, 8)
 
 if __name__ == '__main__':
     unittest.main()

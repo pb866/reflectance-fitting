@@ -14,11 +14,10 @@ Created on Tue Aug  4 15:45:52 2015
 # agreed to within 6 significant digits. I attribute the difference to
 # interpolation differences.
 
-import math
 import numpy as np
 import scipy.interpolate as intp
 
-def matR(n, t, thetad, lam, sigma):
+def matR(n, t, thetad, lam, sigma=0):
     """Reflectance and transmittance form a multilayer mirror
     
     Parameters
@@ -93,7 +92,7 @@ def matR(n, t, thetad, lam, sigma):
     t=percentS*np.abs(ts)**2+(1-percentS)*np.abs(tp)**2
     return (r,t)
 
-def Parratt(n, x, thetad, lam, sigma):
+def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
     """Reflectance from a multilayer mirror
     
     Parameters
@@ -104,6 +103,13 @@ def Parratt(n, x, thetad, lam, sigma):
         index of the other layer
     thetad : number
         incident angle in degrees
+    lam : number
+        wavelength in nanometers
+    fractions : number
+        fraction of light with s polarization. If zero, this is calculated
+        using Gullikson formula for synchrotron
+    sigma : array of number
+        interface roughness in nm
         
     Returns
     -------
@@ -112,9 +118,39 @@ def Parratt(n, x, thetad, lam, sigma):
         
     Example
     -------
-    >>> Parratt(1,0.9+0.05j,15)
-    0.015
+    >>> lam = 15
+    >>> AlIndex = refl.Index('Al')
+    >>> alndx = AlIndex.at(lam)
+    >>> SiO2Index = refl.index('SiO2')
+    >>> sio2ndx = SiO2Index.at(lam)
+    >>> n = np.array([1, alndx, sio2ndx])
+    >>> t = np.array([0, 20, 0])
+    >>> thetad = 20
+    >>> Parratt(n, t, thetad, lam)
+    0.012606490280013215
     """
+    if fractions==0:
+        fractions = fracs(lam)
+    fractionp = 1-fractions
+    S = np.sqrt(n**2-np.cos(thetad*np.pi/180)**2)
+    k = 2*np.pi/lam
+    C = np.exp(2j*S*x*k)
+    rs = 0
+    rp = 0
+    
+    qz = k*np.sin(thetad*np.pi/180) # for Debye-Waller correction
+    if sigma == 0:
+        sigma = np.zeros(n.size-1)
+    eta = np.exp(-2*qz**2*sigma**2) # Debye-Waller roughness correction
+    
+    for m in range(n.size-1, 0,-1):
+        fs = (S[m-1]-S[m])/(S[m-1]+S[m])
+        fp = ((n[m]**2 * S[m-1] - n[m-1]**2 * S[m])/
+              (n[m]**2 * S[m-1] + n[m-1]**2 * S[m]))
+        rs = C[m-1]*(fs*eta[m-1]+rs*eta[m-1]**2)/(1+fs*rs*eta[m-1])
+        rp = C[m-1]*(fp*eta[m-1]+rp*eta[m-1]**2)/(1+fp*rp*eta[m-1])
+    return fractionp*np.abs(rp)**2+fractions*np.abs(rs)**2
+     
 # =============================================================================
 # function R=Parratt(n,x,theta,fractions,lambda,sigma)
 # % calculate the reflectance a multilayer stack
@@ -140,11 +176,6 @@ def Parratt(n, x, thetad, lam, sigma):
 # R=(fractionp*abs(rp)^2+fractions*abs(rs)^2);
 # return;
 # =============================================================================
-    theta=thetad*math.pi/180
-    costt=(1-n1/n2*math.sin(theta))**0.5
-    n1c=n1*math.cos(theta)
-    n2c=n2*costt
-    return abs((n1c-n2c)/(n1c+n2c))**2
 
 ipts = np.array([[1.05685E+1,9.37888E-1],
                  [1.40446E+1,9.26536E-1],
