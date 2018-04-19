@@ -14,3 +14,6 @@ Matlab/Ben/figures/
 Matlab/Ben/Y2O3/1504y2o3 (day 1)/
 Matlab/Ben/Y2O3/1504y2o3 (day 2)/
 *.pyc
+*.aux
+*.gz
+*.toc

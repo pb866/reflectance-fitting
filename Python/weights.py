@@ -50,7 +50,6 @@ def print_fit(label, popt, pcov):
         
 sigma = np.ones(np.size(thr))
 popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=False)
-print(pcov[0,0])
 print_fit('exact', np.array([alf3ndx.real, alf3ndx.imag, 18]),
           np.zeros([3,3]))
 print_fit('unweighted fits', popt, pcov)
@@ -60,13 +59,27 @@ rfit = [Parratt(ndf ,thf, thetad, wl) for thetad in thr]
 
 plt.close('all')
 plt.figure()
+plt.semilogy(thr, rfl, '-')
+plt.title('Reflectance for AlF3/Al/SiO2/Si')
+plt.xlabel('angle, degrees')
+plt.ylabel('reflectance')
+
+
+plt.figure()
+plt.semilogy(thr, refn, '.', thr, rfl, '--')
+plt.legend(['data','model'])
+plt.title('Reflectance for AlF3/Al/SiO2/Si with Noise')
+plt.xlabel('angle, degrees')
+plt.ylabel('reflectance')
+
+plt.figure()
 plt.semilogy(thr, refn, '.', thr, rfit, '-', thr, rfl, '--')
 plt.legend(['data','fit','exact'])
 plt.title('Unweighted Fit for AlF3/Al/SiO2/Si with Noise')
 plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
 
-# Weighted fit
+# Proportionally Weighted fit
 sigma=sigmap*np.array(rfl)
 popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=True)
 print_fit('prop weighted fits', popt, pcov)
@@ -82,3 +95,18 @@ plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
 plt.show()
 
+# Combined Weighted fit
+sigma = np.sqrt((sigmap*np.array(rfl))**2+sigmac**2)
+popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=True)
+print_fit('combined weighted fits', popt, pcov)
+ndf = np.array([1+0j, popt[0]+popt[1]*1j, alndx, sio2ndx, sindx])
+thf = np.array([0, popt[2], 50, 1.6, 0])
+rfit = [Parratt(ndf ,thf, thetad, wl) for thetad in thr]
+
+plt.figure()
+plt.semilogy(thr, refn, '.', thr, rfit, '-', thr, rfl, '--')
+plt.legend(['data','fit','exact'])
+plt.title('Combined Weighted Fit for AlF3/Al/SiO2/Si with Noise')
+plt.xlabel('angle, degrees')
+plt.ylabel('reflectance')
+plt.show()
