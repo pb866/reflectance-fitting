@@ -285,7 +285,79 @@ thickness & $18.0$ & $18.0005\pm 0.0310$\\ \hline
 combined uncertainty given by Equation~\ref{eq:combined}.}
 \end{table}
 The uncertainties are higher, but probably more accurate and the
-fir parameters are better.
+fit parameters are better.
+
+\subsection{Systematic Errors}
+Systematic errors arise when the model of our mirror
+doesn't match the actual mirror for some reason. This would
+be due to missing layers, incorrect assumptions about layer
+thicknesses, incorrect assumptions about the index of
+refraction, or a gradient in the layer thickness. In this
+section, I'll address how systematic errors affect our
+fits and the appropriate weights to use when fitting them.
+
+\section{Weight Selection}
+Given how critical it is to get the weights correct in
+fitting, it is important to know what the signatures are
+of incorrect weights and how these might be determined
+empirically.
+\subsection{Statistical Errors Only}
+If the only contribution to the errors is statistical,
+the relative size of the weighted residuals is a good
+clue. On average, the residuals should have the same
+magnitude across the range of angles.
+
+As an illustration, Figure~\ref{fig:res-equalweight}
+is a graph of the weighted residuals
+\begin{equation}
+r=\frac{f(x_i)-y_i}{\sigma_i}
+\end{equation}
+for a fit with constant weights.Note how the weighted
+residuals are larger for low angles where the reflectance
+is higher than for higher angles where the reflectance
+is lower.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/res-equalweight}
+  \end{center}
+  \caption{\label{fig:res-equalweight}Weighted residuals
+  from a fit with equal weights}
+\end{figure}
+
+Figure~\ref{fig:res-propweight} is the same plot for a fit
+using proportional weights.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/res-propweight}
+  \end{center}
+  \caption{\label{fig:res-propweight}Weighted residuals
+  for a fit with proportional weights}
+\end{figure}
+Note how the largest weighted residuals are on the high
+angle side of the graph where the constant error term
+is significant and hasn't been correctly added.
+
+Figure~\ref{fig:res-combweight} is the same plot for a fit
+using the combined weight from Equation~\ref{eq:combined}.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/res-combweight}
+  \end{center}
+  \caption{\label{fig:res-combweight}Weighted residuals
+  for a fit with combined weights from Equation~\ref{eq:combined}}
+\end{figure}
+Note that the errors all have equal average
+magnitudes and an
+rms size of about 1. This is what an ideal plot of weighted
+residuals would look like if the error is only statistical.
+
+\subsection{Systematic Errors}
+It is more subtle to find the correct weighting when
+the errors are systematic rather than statistical. The
+signature of systematic errors is having the weighted
+residuals characteristically on one side or the other
+of zero, rather than being randomly distributed as
+in Figure~\ref{fig:res-combweight}.
 
 \appendix
 

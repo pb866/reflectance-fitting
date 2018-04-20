@@ -79,6 +79,13 @@ plt.title('Unweighted Fit for AlF3/Al/SiO2/Si with Noise')
 plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
 
+res = (rfit-refn)/sigma
+plt.figure()
+plt.plot(thr, res, '.')
+plt.title('Residual for Unweighted Fit')
+plt.xlabel('angle, degrees')
+plt.ylabel('residual')
+
 # Proportionally Weighted fit
 sigma=sigmap*np.array(rfl)
 popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=True)
@@ -95,6 +102,13 @@ plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
 plt.show()
 
+res = (rfit-refn)/sigma
+plt.figure()
+plt.plot(thr, res, '.')
+plt.title('Residual for Proportionally Weighted Fit')
+plt.xlabel('angle, degrees')
+plt.ylabel('residual')
+
 # Combined Weighted fit
 sigma = np.sqrt((sigmap*np.array(rfl))**2+sigmac**2)
 popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=True)
@@ -109,4 +123,12 @@ plt.legend(['data','fit','exact'])
 plt.title('Combined Weighted Fit for AlF3/Al/SiO2/Si with Noise')
 plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
+
+res = (rfit-refn)/sigma
+plt.figure()
+plt.plot(thr, res, '.')
+plt.title('Residual for Combined Weighted Fit')
+plt.xlabel('angle, degrees')
+plt.ylabel('residual')
+
 plt.show()
