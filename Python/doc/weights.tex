@@ -119,7 +119,7 @@ Figure~\ref{fig:noise}
     \includegraphics[width=0.75\textwidth]{images/noise}
   \end{center}
   \caption{\label{fig:noise}Reflectance from model mirror with random
-  noise added.}
+  noise added}
 \end{figure}
 is a graph of the exact data and the data with
 random noise added as above. Note that the noise is biggest at high
@@ -134,7 +134,22 @@ Our models for the reflectance undoubtedly are imperfect. As implemented,
 they don't correctly account for variations in layer thickness, interfacial
 roughness, and incorrect assumptions about material thicknesses and
 optical constants. I will study these effects as well by purposely adding
-this kinds of errors in later models.
+this kinds of errors in later model.
+
+The example I have used for systematic error in this case was omitting the
+SiO$_2$ layer between the Si substrate and the Al. This gives the same
+kind of fitting challenge I often see in fitting real data: a good fit
+for low angles and a degraded fit for higher angles.
+Figure~\ref{fig:with-and-without} is a plot of the two exact reflectances
+for this case.
+\begin{figure}[htb]
+	\begin{center}
+		\includegraphics[width=0.75\textwidth]{images/with-and-without}
+	\end{center}
+	\caption{\label{fig:with-and-without}Reflectance from model mirror with and
+		without the SiO$_2$ layer}
+\end{figure}
+
 
 \section{Fits}
 The process of weighted least squares fitting involves minimizing
@@ -143,7 +158,7 @@ the function
 \chi^2 = \sum_i\left[\frac{y_i - r(\theta_i;
 	\vec{b})}{\sigma_i}\right]^2\label{eq:chisq}
 \end{equation}
-where $y_i$ are the measured data points at the measurements angles
+where $y_i$ are the measured data points at the measurement angles
 $\theta_i$ and $\sigma_i$ are the uncertainties at those points. The
 function $r$ is the computed reflectance which depends both on the angle
 $\theta_i$ and the fit parameters $\vec{b}$. For the purposes of
@@ -295,6 +310,65 @@ thicknesses, incorrect assumptions about the index of
 refraction, or a gradient in the layer thickness. In this
 section, I'll address how systematic errors affect our
 fits and the appropriate weights to use when fitting them.
+
+I will use the model introduced in Section~\ref{sec:syserr},
+where a sample with a SiO$_2$ layer is modeled without
+including that layer.
+
+\subsubsection{Constant Weights}
+The fit using constant weights is better than I expected
+a first blush. Because the constant weights put most
+of their emphasis on the region where the model and data
+agree (at low angles) the fit is actually quite good.
+Table~\ref{tab:mconst} shows the results of this fit.
+\begin{table}[htb]
+	\begin{center}
+		\begin{tabular}{| c | c | c |}
+			\hline
+			quantity & exact & fit\\ \hline\hline
+			n & $0.9717$ & $0.9717\pm 0.00000$\\
+			k & $0.0249$ & $0.0249\pm 0.00001$\\
+			thickness & $18.0$ & $17.9999\pm 0.00729$\\ \hline
+		\end{tabular}
+	\end{center}
+	\caption{\label{tab:mconst}Results from an unweighted fit with a bad model}
+\end{table}
+The data and fit are shown in Figure~\ref{fig:mconst}.
+\begin{figure}[htb]
+	\begin{center}
+		\includegraphics[width=0.75\textwidth]{images/mconst}
+	\end{center}
+	\caption{\label{fig:mconst}Fit of reflectance from model mirror using an incomplete model and constant weights}
+\end{figure}
+
+\subsubsection{Proportional Weights}
+Using proportional weights, the fit is worse, but is a more
+accurate reflection of the incorrect model.
+Table~\ref{tab:mprop} shows the results of the fit
+in this case.
+\begin{table}[htb]
+	\begin{center}
+		\begin{tabular}{| c | c | c |}
+			\hline
+			quantity & exact & fit\\ \hline\hline
+			n & $0.9717$ & $0.9720\pm 0.00011$\\
+			k & $0.0249$ & $0.0257\pm 0.00013$\\
+			thickness & $18.0$ & $18.0886\pm 0.01231$\\ \hline
+		\end{tabular}
+	\end{center}
+	\caption{\label{tab:mprop}Results from a proportionally
+		weighted fit with a bad model}
+\end{table}
+Note that even thought the fit is "worse," the uncertainties
+computed using statistical considerations are a reasonable
+estimate of the amount they are off.
+Figure~\ref{fig:mconst} shows the exact data and the fit.
+\begin{figure}[htb]
+	\begin{center}
+		\includegraphics[width=0.75\textwidth]{images/mprop}
+	\end{center}
+	\caption{\label{fig:mprop}Fit of reflectance from model mirror using an incomplete model and proportional weights}
+\end{figure}
 
 \section{Weight Selection}
 Given how critical it is to get the weights correct in
