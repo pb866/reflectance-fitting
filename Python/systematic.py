@@ -86,7 +86,7 @@ plt.legend(['data','fit'])
 
 # Proportionally Weighted fit
 sigma=sigmap*np.array(rfl)
-popt, pcov = curve_fit(f, thr, rfl, p0, sigma, absolute_sigma=True)
+popt, pcov = curve_fit(f, thr, rfl, p0, sigma, absolute_sigma=False)
 print_fit('prop weighted fits', popt, pcov)
 ndf = np.array([1+0j, popt[0]+popt[1]*1j, alndx, sindx])
 thf = np.array([0, popt[2], 50, 0])
@@ -98,15 +98,14 @@ plt.legend(['data','fit'])
 plt.title('Prop Weighted Fit for Bad Model')
 plt.xlabel('angle, degrees')
 plt.ylabel('reflectance')
-plt.show()
-#
-#res = (rfit-refn)/sigma
-#plt.figure()
-#plt.plot(thr, res, '.')
-#plt.title('Residual for Proportionally Weighted Fit')
-#plt.xlabel('angle, degrees')
-#plt.ylabel('residual')
-#
+
+res = (np.array(rfit)-np.array(rfl))/sigma
+plt.figure()
+plt.plot(thr, res, '.')
+plt.title('Normalized Residual for Proportionally Weighted Fit')
+plt.xlabel('angle, degrees')
+plt.ylabel('residual')
+
 ## Combined Weighted fit
 #sigma = np.sqrt((sigmap*np.array(rfl))**2+sigmac**2)
 #popt, pcov = curve_fit(f, thr, refn, p0, sigma, absolute_sigma=True)

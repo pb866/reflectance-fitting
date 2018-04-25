@@ -129,8 +129,7 @@ looks unsymmetrically distributed on a semilog plot as shown here.
 That is because equal values of error in the positive and negative
 directions have unequal weights on a logarithmic scale.
 
-\subsection{Systematic Error}
-Our models for the reflectance undoubtedly are imperfect. As implemented,
+\subsection{Systematic Error}\label{sec:syserr}
 they don't correctly account for variations in layer thickness, interfacial
 roughness, and incorrect assumptions about material thicknesses and
 optical constants. I will study these effects as well by purposely adding
@@ -343,7 +342,11 @@ The data and fit are shown in Figure~\ref{fig:mconst}.
 
 \subsubsection{Proportional Weights}
 Using proportional weights, the fit is worse, but is a more
-accurate reflection of the incorrect model.
+accurate result of using the incorrect model. The fits
+were done with absolute\_sigma=True. Using
+absolute\_sigma=False
+gives larger uncertainties in the fit parameters by about
+a factor of two.
 Table~\ref{tab:mprop} shows the results of the fit
 in this case.
 \begin{table}[htb]
@@ -431,7 +434,22 @@ the errors are systematic rather than statistical. The
 signature of systematic errors is having the weighted
 residuals characteristically on one side or the other
 of zero, rather than being randomly distributed as
-in Figure~\ref{fig:res-combweight}.
+in Figure~\ref{fig:res-combweight}. Also, it may or
+may not be reasonable to expect $chi^2$ to equal the
+number of data points in this case. Figure~\ref{fig:mrp} is
+a plot of the normalized residuals in this case.
+\begin{figure}[htb]
+	\begin{center}
+		\includegraphics[width=0.75\textwidth]{images/mrp}
+	\end{center}
+	\caption{\label{fig:mrp}Normalized residual from
+	fitting the mirror with a model error and proportional
+	weights}
+\end{figure}
+
+\subsection{Combined Errors}
+Of course, in practice, we can anticipate a combination
+of statistical and systematic errors.
 
 \appendix
 
