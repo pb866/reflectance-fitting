@@ -85,12 +85,214 @@ information followed by four columns of numbers:
 \item [m3] the signal from the m3 mirror (usually ignored)
 \item [beam] the beam current during the run (also usually ignored)
 \end{description}
+There are three classes in \texttt{refl} which manage these data files
+for you.
+\subsection{Log class}
+The Log class parses the log file with information about each run. The command
+\begin{lstlisting}
+log = Log('../ALSdata','Feb2018')
+\end{lstlisting}
+will read the log file in the directory \texttt{../ALSdata} with the
+name \texttt{Feb2018.log} and store it as the log object. There are various
+attributes stores as arrays in object.
+\begin{description}
+\item[filename] the filename for the run
+\item[fullname] the complete filename with path for the run
+\item[comment] the comment stored with the run
+\item[date] the date of the run
+\item[time] the time of the run
+\item[gain] the log (base 10) of the gain for this run
+\item[wavelength] the wavelength in nm (usually) for this run
+\end{description}
+Some of this information is copied to Run objects when they are created.
+\subsection{Run class}
+A Run object has the raw data for a single run. It is usually accessed
+from the Runs class rather than directly. This permits read caching. It has the
+four attributes mentioned above for each run (stored as np.array objects) as well
+as the wavelength, comment, and gain from the log file.
+The Run class has a plot method defined which will plot the data for a run
+using the comment as the plot title. Figure~\ref{fig:run102} was generated
+using the following command.
+\begin{lstlisting}
+runs[102].plot()
+\end{lstlisting}
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/run102}
+  \end{center}
+  \caption{\label{fig:run102}raw data from run 102}
+\end{figure}
+
+\subsection{Runs class}
 The Run objects are returned by the Runs class which reads the files
-when needed and caches their contents for subsequent calls.
+when needed and caches their contents for subsequent calls. After executing
+\begin{lstlisting}
+runs = Runs(log)
+\end{lstlisting}
+the individual run information can be accessed as \texttt{runs[rnum]} where
+rnum is the run number. Thus, the gain for run 11 would be \texttt{runs[11].gain}.
 
 \section{Creating Reflectance Spectra}
+Reflectance spectra are created with with the Reflectance class by combining
+various runs to find $I$, $I_0$, and associated gains, and the associated
+dark currents.
+
+I will illustrate how this is done by creating two single spectra and them combining
+and filtering them. I've used the data taken on Feb 24, 2018 at the
+Advanced Light Source for sample 180221A at 18~nm as the example.
+
+\subsection{Creating a Single Spectrum}
+
+The first step is to import the libraries needed for the analysis. We will
+refl for this library, numpy for finding the mean of arrays, matplotlib
+to plot the results, and scipy for the fitting routine.
+\begin{lstlisting}
+import refl
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+\end{lstlisting}
+Next we need to create a Log and Runs objects with the data from the run.
+\begin{lstlisting}
+log = refl.Log('../ALSdata','Feb2018')
+runs = refl.Runs(log)
+\end{lstlisting}
+The next step is to create a tuple of dark currents from the run. The dark
+currents were in runs 101 (gain 7), 98 (gain 8), 99 (gain 9), and 100 (gain 10).
+The dark current is computed as the mean diode signal for a dark current run.
+\begin{lstlisting}
+d7=np.mean(runs[101].diode)
+d8=np.mean(runs[98].diode)
+d9=np.mean(runs[99].diode)
+d10=np.mean(runs[100].diode)
+dark=(d7,d8,d9,d10)
+\end{lstlisting}
+
+There were three runs with $\theta$/$2\theta$ data for this sample at 18~nm.
+Run 119 was taken with a lower gain than runs 120 and 121. Runs 120 and 121
+don't have any data for the lowest angles.
+I'll create separate spectra for these two sets of runs
+to make it easier to filter and combine them. The $I0$ data for this filter and
+sample is in run 97.
+\begin{lstlisting}
+s18a = refl.Reflectance((runs[119],),runs[97], dark)
+plt.figure()
+plt.semilogy(s18a.ang, s18a.rfl)
+plt.title('Spectrum 18a')
+s18b = refl.Reflectance((runs[120], runs[121]), runs[97], dark)
+plt.figure()
+plt.semilogy(s18b.ang, s18b.rfl)
+plt.title('Spectrum 18b')
+\end{lstlisting}
+The plot commands in the above listing produced the plots in
+Figures~\ref{fig:18a} and \ref{fig:18b}
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/r18a}
+  \end{center}
+  \caption{\label{fig:18a}reflectance data from run 119}
+\end{figure}
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/r18b}
+  \end{center}
+  \caption{\label{fig:18b}reflectance data from combining runs 120 and 121}
+\end{figure}
+
+\subsection{Combining Spectra}
+By looking at the the raw data, I
+decided that the best data for angles of $18^\circ$ or less is run 119 and the best
+data for angles greater than $18^\circ$ is the combination of runs 120 and 121.
+To combine the runs, I filtered spectrum s18a to only have angles up to $18^\circ$.
+I also eliminated the angles less than two degrees where it is unreliable. I
+filtered the spectrum 18b to only include the data for angles greater than
+$18^\circ$. I then added the two spectra together to get a combined spectrum s18
+which is shown in Figure~\ref{fig:18}
+\begin{lstlisting}
+s18 = s18a.filter(2,18) + s18b.filter(18.05,80)
+s18.plot()
+\end{lstlisting}
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/r18}
+  \end{center}
+  \caption{\label{fig:18}reflectance data from combining runs 120 and 121}
+\end{figure}
 
 \section{Fitting the Data}
+Once we have the reflectance spectrum, we need to find the materials properties
+that provide the best match between our reflectance measurements and theoretical
+calculations. We call this process data fitting.
+
+\subsection{Mirror Model}
+Based on our fabrication process and the measurements we made prior to
+going to ALS, we think this sample has a thick Si$_3$N$_4$ substrate followed
+by a layer of Al and AlF$_3$.We are not sure about the thickness of the Al or
+AlF$_3$ layers, but we think the have respective thicknesses of 8~nm and 26~nm. To
+start with we will assume the Al is unoxidized and has a complex index of
+refraction given by the data file in volta.
+
+The refl library has two routines for computing reflectance, \texttt{Parratt}
+and \texttt{matR}. We'll use \texttt{Parratt} for this example since we only
+care about reflectance and now about transmittance in this case. The \texttt{Parratt}
+function takes the following arguments.
+\begin{description}
+\item[n] a numpy array with the index of refraction of the various layers. It starts
+with the index of refraction of the incident layer (which is a vacuum in our case)
+and works its way down to the substrate.
+\item{x} a numpy array with the thicknesses of each mirror layer in
+nanometers. The thickness of
+the incident (vacuum) layer and substrate layers should be set to 0. This is because we
+are interested in the field right at the interface; not after is has penetrated into those
+layers.
+\item[thetad] the incident angle measured from grazing in degrees
+\item[lam] the wavelength in nanometers
+\item[frs] the fraction of s polarization in the beam. If left to its default
+value of 0, the Gullikson formula is used.
+\item[sigma] an array or tuple
+with the rms roughness of each interface measured in nm. They
+should be in the same order as the layers themselves. There is one less interface than
+layers, so this array will be one smaller than the n and x arrays.
+\end{description}
+\subsection{Index of Refraction}
+We will look up the index of refraction (either as starting guesses or assumed
+exact values) from tables we store on the volta server. The Index class in refl
+will read these values in these tables from volta. They have an at function
+which interpolates between the values in these tables to estimate the index
+of refraction at our desired wavelength.  This code creates Index objects
+for AlF$_3$, Al, and Si$_3$N$_4$.
+\begin{lstlisting}
+# index objects
+AlF3Index = refl.Index("AlF3")
+AlIndex = refl.Index("Al")
+Si3N4Index = refl.Index("Si3N4")
+# interpolated values at 18 nm
+alf3ndx = AlF3Index.at(s18.wavelength)
+alndx = AlIndex.at(s18.wavelength)
+si3n4ndx = Si3N4Index.at(s18.wavelength)
+\end{lstlisting}
+\subsection{Create Fit Function}
+The \texttt{curve\_fit} function will call a function we need to write to
+compute the theoretical reflectance using the current value of the parameters
+it is trying to fit. The function will have the desired angles as its first
+argument and successive parameters values as subsequent arguments.  Our
+parameters for this first fit
+will be the read and imaginary parts of the AlF$_3$ index of refraction (n and k),
+the thickness of the AlF$_3$ layer (tf), and the thickness of the Al layer (ta).
+\begin{lstlisting}
+def f(thr, n, k, tf, ta):
+    ndx = np.array([1+0j, n+k*1j, alndx, si3n4ndx])
+    th = np.array([0, tf, ta, 0])
+    sigma = (1.0,0,0);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, sigma)
+            for thetad in thr]
+\end{lstlisting}
+The function uses the passed parameters to set up the index of refraction
+array and the thickness array for the call to \texttt{Parratt}. \texttt{Parratt}
+is then called to compute the reflectance with these parameters at the passed
+values for theta.
+If we want to fit different parameters, we'll have to edit this function because
+its calling arguments will change.
 
 \section{Finding Average Values}
 

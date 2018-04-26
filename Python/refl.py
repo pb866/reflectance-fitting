@@ -16,6 +16,7 @@ Created on Tue Aug  4 15:45:52 2015
 
 import numpy as np
 import scipy.interpolate as intp
+import matplotlib.pyplot as plt
 
 def matR(n, t, thetad, lam, sigma=0):
     """Reflectance and transmittance form a multilayer mirror
@@ -303,7 +304,32 @@ class Log:
         self.wavelength = np.array(self.wavelength)
 
 class Run:
-    """ The parsed data form a raw data file
+    """ The parsed data from a raw data file
+    
+    Constructor Parameters
+    ----------------------
+    log : Log
+        log object with filename, gaine, wavelength, etc.
+    run : int
+        run number
+        
+    Attributes
+    ----------
+    var : np.array of float
+        data from first column (usually theta)
+    diode : np.array of float
+        diode reading
+    m3 : np.array of float
+        m3 mirror reading
+    beam : np.array of float
+        beam current
+    wavelength : float
+        wavelength in nm (usually)
+    comment : string
+        comment entered at beginning of run
+    gain : float
+        log10 of gain for run
+    
     """
     def __init__(self, log: Log, run: int):
         self.var = []
@@ -322,6 +348,14 @@ class Run:
         self.diode = np.array(self.diode)
         self.m3 = np.array(self.m3)
         self.beam = np.array(self.beam)
+        self.wavelength = log.wavelength[run]
+        self.comment = log.comment[run]
+        self.gain = log.gain[run]
+    def plot(self):
+        plt.figure()
+        plt.semilogy(self.var, self.diode)
+        plt.title(self.comment)
+        plt.show()
 
 class Runs:
     """ A cached collection of Run objects
@@ -356,3 +390,84 @@ class Runs:
         if sndx not in self.rn:
             self.rn[sndx] = Run(self.log, index)
         return self.rn[sndx]
+    
+class Reflectance:
+    """ Reflectance as a function of incident angle
+    
+    Constructor Parameters
+    ----------------------
+    iruns : tuple of Run
+        runs with the reflected data
+    i0run : Run
+        run with the direct beam data
+    dark : tuple of float
+        dark current for gains 7, 8, 9, and 10
+        
+    Attributes
+    ----------
+    wavlength : float
+        wavelength of this spectrum
+    frs : float
+        fraction of s polarized light in this spectrum
+        
+    Methods
+    -------
+    filter(thmin: float, thmax : float)
+        return a new Spectrum with theta between thmin and thmax
+    +
+        overloaded addition operator to combine spectra
+    """
+    def __init__(self, iruns: tuple=(), i0run: Run=0, dark: tuple=()):
+        if len(iruns)==0:
+            self.wavelength = 0.0
+            self.frs = 0.0
+            self.ang = np.array([])
+            self.rfl = np.array([])
+        else:            
+            ang = np.array([])
+            rfl = np.array([])
+            self.wavelength = iruns[0].wavelength
+            self.frs = fracs(self.wavelength)
+            itrp = intp.interp1d(i0run.var, i0run.diode, 'cubic')
+            ir = itrp(self.wavelength)
+            r0 = (ir-dark[int(i0run.gain)-7])/10**i0run.gain
+            for run in iruns:
+                ang = np.append(ang, run.var)
+                rf = (run.diode-dark[int(run.gain)-7])/10**run.gain
+                rfl = np.append(rfl, rf/r0)
+            ad = np.array([ang, rfl]).T
+            ad = np.array(sorted(ad, key=lambda m:m[0]))
+            self.ang = ad[:,0]
+            self.rfl = ad[:,1]
+        
+    def __add__(self, other):
+        rp = Reflectance()
+        ang = np.concatenate((self.ang, other.ang),axis=0)
+        rfl = np.concatenate((self.rfl, other.rfl),axis=0)
+        ad = np.array([ang, rfl]).T
+        ad = np.array(sorted(ad, key=lambda m:m[0]))
+        rp.ang = ad[:,0]
+        rp.rfl = ad[:,1]
+        rp.wavelength = self.wavelength
+        rp.frs = self.frs
+        return rp
+    
+    def filter(self, minang: float=0, maxang: float = 90):
+        rp = Reflectance()
+        ad = np.array([self.ang, self.rfl]).T
+        ad = np.array([x for x in ad if x[0]>=minang and x[0]<=maxang])
+        rp.ang = ad[:,0]
+        rp.rfl = ad[:,1]
+        rp.wavelength = self.wavelength
+        rp.frs = self.frs        
+        return rp
+    
+    def plot(self):
+        """ plot this reflectance data on a semilog plot with
+        the axes labelled and wavelength given."""
+        plt.figure()
+        plt.semilogy(self.ang, self.rfl, '.')
+        plt.title('Wavelength = '+str(round(self.wavelength,3))+" nm")
+        plt.xlabel('grazing angle, degrees')
+        plt.ylabel('reflectance')
+        plt.show()
