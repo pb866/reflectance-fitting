@@ -1,0 +1,99 @@
+\documentclass[english]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{babel}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{url}
+% 
+\renewcommand{\tt}{\normalfont \ttfamily}
+
+\begin{document}
+\title{Fitting ALS Reflectance Data using Python}
+\author{R. Steven Turley}
+\date{April, 2018}
+
+\maketitle
+\tableofcontents{}
+
+\section{Introduction}
+
+This report explains how to use Python to fit reflectance data
+taken in Beamline 6.3.2 at the Advanced Light Source at Lawrence
+Berkeley National Lab. It is based on some classes I wrote to
+make the processes somewhat easier.
+
+\subsection{Python}
+If you don't already know at least a little Python, I would suggest
+reading a python tutorial before reading this. I'll explain
+things a little bit along the way, but the purpose of this document
+is more about fitting the data than about learning Python.
+
+\subsection{Fitting Steps}
+There are a couple of steps to the fitting process:
+\begin{itemize}
+\item reading in raw data
+\item combining raw data files to compute $\theta$/$2\theta$ spectra
+\item fitting the $\theta$/$2\theta$ spectra to theoretical curves
+\item combining the fits to derive average data values
+\item refitting the data with average data values.
+\end{itemize}
+
+\subsection{Refl Module}
+The library routines and classes you'll need to do the fitting
+are in the file \texttt{refl.py}. Before using these routines and
+classes, you'll need to import with the entire module
+\begin{lstlisting}
+import refl
+\end{lstlisting}
+or the specific items you need from the module.
+\begin{lstlisting}
+from refl import Spectrum, Index, Parratt
+\end{lstlisting}
+The \texttt{refl} module contains the following items.
+\begin{description}
+\item [matR] a function to calculate reflectance and transmittance
+	from a multilayer mirror using matrices. It is slower than
+	Parratt if you only want the reflectance.
+\item [Parratt] a function to calculated reflectance from a
+	multilayer mirror.
+\item [fracs] a function to calculate the fraction of s-polarized
+	light in the synchrotron beam at the ALS. This is mostly used
+	internally.
+\item [Index] a class returning the complex index of refraction
+	for a material.
+\item [Run] a class with the raw data from a run.
+\item [Runs] a cache of all of the run data form an ALS
+	trip. Runs[i] is the Run numbered i.
+\item [Reflectance] a class with computed reflectance from a set
+	of runs.
+\item [Log] a class with information from the log file saved
+	with a set of runs.
+\end{description}
+
+\section{Reading Raw Data Files}
+Raw data files from the ALS consists of a header line with data
+information followed by four columns of numbers:
+\begin{description}
+\item [var] the data being varied during the measurement. For
+	$\theta$/$2\theta$ measurements (our most common ones), this
+	is the measurement angle. For $I_0$ measurements, this is the
+	wavelength. For dark current measurements, this is usually
+	the time.
+\item [diode] the signal from the diode detector
+\item [m3] the signal from the m3 mirror (usually ignored)
+\item [beam] the beam current during the run (also usually ignored)
+\end{description}
+The Run objects are returned by the Runs class which reads the files
+when needed and caches their contents for subsequent calls.
+
+\section{Creating Reflectance Spectra}
+
+\section{Fitting the Data}
+
+\section{Finding Average Values}
+
+\section{Refitting Data}
+
+\end{document}

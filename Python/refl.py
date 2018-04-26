@@ -99,8 +99,10 @@ def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
     ----------
     n : np.array of index of refractions for stack starting with 
         index of the incident layer
-    n2 : number
-        index of the other layer
+    x : np.array of layer thicknesses for stack starting with
+        the thickness of the incident layer (usually vacuum).
+        The vacuum and substrate thicknesses should be set to
+        0.
     thetad : number
         incident angle in degrees
     lam : number
@@ -250,3 +252,107 @@ class Index:
         lam=val[:,0]/10
         ndx=val[:,1]+val[:,2]*1j
         self.at=interp1d(lam,ndx,'cubic')
+
+from csv import reader
+
+class Log:
+    """ Information from the log file for an ALS run
+    
+    Constructor Parameters
+    ----------------------
+    path : string
+        Directory where the log file is located
+    prefix : string
+        prefix for the log file name
+        
+    Attribute
+    -------
+    Each attribute is a list indexed by run number.
+    filename: filename for the data file
+    fullname: filename with full path for the data file
+    comment: comment for run
+    date: date of run
+    time: time of run
+    gain: log_10 of the gain of the run
+    wavelength: wavelength (assumed nm)
+    """
+    def __init__(self, path:str = 'X:/ALSData/2018/Feb2018',
+                 prefix:str = 'Feb2018'):
+        self.path = path
+        self.filename = ['']
+        self.fullname = ['']
+        self.comment = ['']
+        self.date = ['']
+        self.time = ['']
+        self.gain = [0]
+        self.wavelength = [0]
+        mypath = path+'/'+prefix+'.log'
+        with open(mypath, newline='') as f:
+            f.readline(); # skip first header line
+            f.readline(); # skip second header line
+            rdr = reader(f, delimiter='\t')
+            for row in rdr:
+                self.filename.append(row[2]);
+                self.fullname.append(path+'/'+row[2])
+                self.comment.append(row[3])
+                self.date.append(row[4])
+                self.time.append(row[5])
+                self.gain.append(float(row[8]))
+                self.wavelength.append(float(row[26]))
+        self.gain = np.array(self.gain)
+        self.wavelength = np.array(self.wavelength)
+
+class Run:
+    """ The parsed data form a raw data file
+    """
+    def __init__(self, log: Log, run: int):
+        self.var = []
+        self.diode = []
+        self.m3 = []
+        self.beam = []
+        with open(log.fullname[run]) as f:
+            f.readline();
+            rdr = reader(f, delimiter='\t')
+            for row in rdr:
+                self.var.append(float(row[0]))
+                self.diode.append(float(row[1]))
+                self.m3.append(float(row[2]))
+                self.beam.append(float(row[3]))
+        self.var = np.array(self.var)
+        self.diode = np.array(self.diode)
+        self.m3 = np.array(self.m3)
+        self.beam = np.array(self.beam)
+
+class Runs:
+    """ A cached collection of Run objects
+    
+    Constructor Parameters
+    ----------------------
+    log : Log
+        The Log object for this run. By default, it is assumed
+        that the data files are stored in the same directory
+        as the log file.
+    prefix : the prefix for the data files in the runs. A full
+        data file name will be <prefix><run number>.dat
+        
+    Method
+    ------
+    [] : overloaded index operator returning a Run object. The
+        first time a run is referenced, the information is read
+        from the raw data. Subsequent accesses used cached data
+        from a dictionary.
+        
+    Example
+    -------
+    log = Log('X:/ALSData/2018/Feb2018','Feb2018')
+    runs = Runs(log)
+    run21 = runs[21]
+    """
+    def __init__(self, log:Log):
+        self.log = log
+        self.rn = {}
+    def __getitem__(self,index):
+        sndx = str(index)
+        if sndx not in self.rn:
+            self.rn[sndx] = Run(self.log, index)
+        return self.rn[sndx]
