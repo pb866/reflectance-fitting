@@ -10,6 +10,8 @@ empirically computing uncertainty
 from refl import Parratt, Index
 import numpy as np
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
 
 AlIndex = Index("Al")
 SiIndex = Index("Si")
