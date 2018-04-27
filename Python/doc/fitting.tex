@@ -10,7 +10,7 @@
 \renewcommand{\tt}{\normalfont \ttfamily}
 
 \begin{document}
-\title{Fitting ALS Reflectance Data using Python}
+\title{Fitting ALS Reflectance Data using Python, Version 1.0}
 \author{R. Steven Turley}
 \date{April, 2018}
 
@@ -284,8 +284,8 @@ def f(thr, n, k, tf, ta):
     ndx = np.array([1+0j, n+k*1j, alndx, si3n4ndx])
     th = np.array([0, tf, ta, 0])
     sigma = (1.0,0,0);
-    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, sigma)
-            for thetad in thr]
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, 
+    	sigma) for thetad in thr]
 \end{lstlisting}
 The function uses the passed parameters to set up the index of refraction
 array and the thickness array for the call to \texttt{Parratt}. \texttt{Parratt}
@@ -294,8 +294,431 @@ values for theta.
 If we want to fit different parameters, we'll have to edit this function because
 its calling arguments will change.
 
-\section{Finding Average Values}
+\subsection{Weights}
+Because of the wide range of values covered by the reflectance and
+the obvious noise floor at the highest angles, it is important to
+use a weighted fit. The challenge, which involves as much art as
+science, is to choose a reasonable set of weights. Based on experience
+and other studies, I'm inclined to use a weight with two components
+in quadrature. The first will be an exponentially decreasing function
+whose log has the same slope as the average log of the slope of the
+data. The second term will be a constant value with a magnitude of the
+lowest data points.
+\begin{eqnarray}
+\sigma_i &=& \sqrt{\sigma_p^2+\sigma_c^2}\\
+\sigma_p &=& \alpha \exp(-\beta\theta_i)\\
+\sigma_c &=& \gamma
+\end{eqnarray}
+I'll start with $\alpha=0.05$, $\beta=0.097$,
+and $\gamma=5\times 10^{-5}$. I chose $\alpha$ of this size because a
+5\% error seems like a good starting guess. $\beta$ was chosen by
+eyeballing the slope of the data in Figure~\ref{fig:18} and estimating
+the average slope of the data. $\gamma$ was chosen by estimating the size
+of the noise around the lowest data points near $70^\circ$. Here is
+the Python code to implement this.
+\begin{lstlisting}
+alpha = 0.2
+beta = 0.097
+gamma = 5e-5
+sigmap = np.array([alpha*np.exp(-beta*th) for th in s18.ang])
+sigmac = gamma
+sigmaw = np.sqrt(sigmap**2+sigmac**2)
+\end{lstlisting}
 
-\section{Refitting Data}
+\subsection{Fit}
+The last thing we need for the fit are starting guesses for
+the fir parameters.I used approximated values of $n$ and $k$
+from the table values in volta. This thickness estimates came from
+information supplied by David Allred from ellipsometry data. These
+are stored in the array \texttt{p0}.
+\begin{lstlisting}
+p0=np.array([0.95, 0.025, 8, 26])
+\end{lstlisting}
+Finally, the \texttt{curve\_fit} routine is called using the above
+parameters.
+\begin{lstlisting}
+popt, pcov = curve_fit(f, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+\end{lstlisting}
+It has the following arguments:
+\begin{description}
+\item[f] the function to compute the reflectance given the parameters
+\item[s18.ang] the angles at which the reflectance was measured
+\item[s18.rfl] the measured reflectance
+\item[p0] the initial values of the fit parameters
+\item[sigmaw] the weight for each point
+\item[absolute\_sigma] whether the weight should be considered as the
+\item[popt] returned value of the optimum parameters
+\item[pcov] returned value of the estimated covariance matrix
+absolute uncertainty or a relative value. For this initial fit where I do
+not yet know the residual, using a relative value makes sense.
+\end{description}
+Figure~\ref{fig:fit18} shows the results of this fit and the value of
+\texttt{sigmaw} I used.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/fit18}
+  \end{center}
+  \caption{\label{fig:fit18}data, initial fit, and weights for
+  sample 180221A at 18~nm}
+\end{figure}
+The elements of \texttt{popt} are the returned valued of the
+optimal fit parameters. The diagonal elements of the covariance matrix
+in pcov give the estimated uncertainty in these parameters. This
+code will print those values.
+\begin{lstlisting}
+print('n = '+str(round(popt[0],4))+"+/-"+
+      str(round(np.sqrt(pcov[0,0]),4)))
+print('k = '+str(round(popt[1],4))+"+/-"+
+      str(round(np.sqrt(pcov[1,1]),2)))
+print('tf = '+str(round(popt[2],2))+"+/-"+
+      str(round(np.sqrt(pcov[2,2]),2)))
+print('ta = '+str(round(popt[3],4))+"+/-"+
+      str(round(np.sqrt(pcov[3,3]),2)))
+\end{lstlisting}
+This returns the following:
+\begin{lstlisting}
+n = 0.9784+/-0.0011
+l = 0.0301+/-0.0
+tf = 8.93+/-0.1
+ta = 24.5396+/-0.21
+\end{lstlisting}
+These are close to our original parameter guesses and have reasonable
+uncertainties.
+The code use to create the plot in Figure~\ref{fig:fit18} is as follows.
+\begin{lstlisting}
+rfit = f(s18.ang, popt[0], popt[1], popt[2], popt[3])
+plt.figure()
+plt.semilogy(s18.ang, s18.rfl,'.',s18.ang, rfit, '-',
+	s18.ang, sigmaw,'-r')
+plt.title('Data and Fit')
+plt.xlabel('grazing angle, deg')
+plt.ylabel('reflectance')
+plt.legend(['data', 'fit','sigma'])
+\end{lstlisting}
+The function \texttt{f} was called to compute the fit function using the optimal parameter values returned by \texttt{curve\_fit}.
+\subsection{Discussion of Results}
+The fit shows there are some obvious problems with the model we used
+for our data. There is a relatively large difference between the depth of
+the first minimum near $10^circ$. This is probably more than just an alignment
+error. Secondly, the minimum values in the measured data are not as deep
+as calculated by the model. For valleys which are this deep and with such
+large slopes, this can be due variations in thin film thickness over the
+size of the beam spot and the angular spread in the incident beam.
+Finally, the location of the interference minima don't match the data
+very well. This is probably an artifact of our chosen weights and an
+error in the rest of the model. To understand the artifact in the weight,
+not that the weight at $20^\circ$ is about 300 times larger than the
+fit minimum at that point. With our 5\% guess in the uncertainty, this
+is well within the bounds of what we'd expect. We can force a better fit
+of these minima by having the weights be proportional to the 
+measured data. Here is the code for a refit with those weights.
+\begin{lstlisting}
+sigmap = alpha*np.abs(s18.rfl)
+sigmaw = np.sqrt(sigmap**2+sigmac**2)
+popt, pcov = curve_fit(f, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+\end{lstlisting}
+The fit is shown in Figure~\ref{fig:fit18a}.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/fit18a}
+  \end{center}
+  \caption{\label{fig:fit18a}refit for sample 180221A at 18~nm using
+  weights proportional to the data}
+\end{figure}
+The optimal fir parameters were
+\begin{lstlisting}
+n = 0.9768+/-0.0011
+k = 0.0249+/-0.0
+tf = 8.67+/-0.1
+ta = 25.3344+/-0.15
+\end{lstlisting}
+Not that forcing a better fit to the valleys brings the imaginary
+part of the AlF$_3$ index of refraction closer to the tabulated
+values.
+
+We can check the value of $\beta$ we chose by calculating
+\begin{equation}
+\chi^2=\sum_i\left(\frac{f_i-y_i}{\sigma_i}\right)^2\;.
+\end{equation}
+This should be approximately equal to the number of data points
+if $\beta$ was chosen correctly (at least if the errors were statistical).
+With this code
+\begin{lstlisting}
+chi2 = np.sum(((s18.rfl-rfit)/sigmaw)**2)
+print('chi**2 = '+str(round(chi2,1))+" npts = "+
+	str(np.size(sigmaw)))
+\end{lstlisting}
+I get $\chi^2=941.7$ with 195 data points. This says an 11\% error
+would have been a better guess of $\beta$ than the 5\% value
+I used.
+\subsection{Improved Model}
+It's probable that the Al was at least partially oxidized. We could
+put this in out model as the addition of an Al$_2$O$_3$ layer on top
+of the Al, or as an altered effective index of refraction for the
+Al. Let's try both and see which improves the fit the most. First we'll
+try fitting adding additional oxide layer.
+The following code allows us to add an oxide layer and fit its
+thickness.
+\begin{lstlisting}
+Al2O3Index = refl.Index("Al2O3")
+al2o3ndx = Al2O3Index.at(s18.wavelength)
+def f2(thr, n, k, tf, ta, to):
+    ndx = np.array([1+0j, n+k*1j, al2o3ndx, alndx, si3n4ndx])
+    th = np.array([0, tf, to, ta, 0])
+    sigma = np.array([1.0,0,0,0]);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, sigma)
+            for thetad in thr]
+p0=np.array([0.95, 0.025, 8, 26, 1])
+popt, pcov = curve_fit(f2, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+\end{lstlisting}
+The fit indeed improves, as shown in Figure~\ref{fig:fit18oxide}, but
+does so by requiring an unphysical value for the fluoride thickness.
+\begin{lstlisting}
+n = 1.3424+/-0.0291
+k = 0.1928+/-0.02
+tf = 0.19+/-0.03
+ta = 26.3502+/-0.14
+to = 5.4362+/-0.0802
+\end{lstlisting}
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/fit18oxide}
+  \end{center}
+  \caption{\label{fig:fit18oxide}fit for sample 180221A at 18~nm using
+  an Al$_2$O$_3$ layer}
+\end{figure}
+For this approach to work, we should find average values of the
+layer thickness as described in Section~\ref{sec:avg} and then refit
+using these average values as described in Section~\ref{sec:refit}.
+
+Let's see what happens if we allow the index of refraction of the Al
+layer to change rather than adding an oxide layer. Here is the code for
+that.
+\begin{lstlisting}
+def f3(thr, nf, kf, na, ka, tf, ta):
+    ndx = np.array([1+0j, nf+kf*1j, na+ka*1j, si3n4ndx])
+    th = np.array([0, tf, ta, 0])
+    sigma = np.array([1.0,0,0]);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, sigma)
+            for thetad in thr]
+p0=np.array([0.95, 0.025, alndx.real, alndx.imag, 8, 26])
+popt, pcov = curve_fit(f3, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+\end{lstlisting}
+As shown in Figure~\ref{fig:fit18alndx}, this improves the fit a lot
+for the low angles, although the fit at the highest angles is still
+problematic. Here are the fit values.
+\begin{lstlisting}
+nf = 0.9809+/-0.0008
+kf = 0.036+/-0.0008
+na = 1.0019+/-0.0004
+ka = 0.0011+/-0.0004
+tf = 8.82+/-0.0675
+ta = 25.2063+/-0.1068
+\end{lstlisting}
+The fit constants are physically reasonable when we note that the
+index of refraction of Al at 18~nm is $1.0087+0.0024i$.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/fit18alndx}
+  \end{center}
+  \caption{\label{fig:fit18alndx}fit for sample 180221A at 18~nm using
+  an Al$_2$O$_3$ layer}
+\end{figure}
+The best model of the mirror in the end will probably use a fitted value
+for the Al index of refraction to compensate for the fact that
+our Al probably isn't perfect and a thin oxide layer as well.
+
+\section{Finding Average Values}\label{sec:avg}
+The thickness of the mirror films should change with wavelength, the the
+index of refraction of the mirror layers will. The best overall strategy
+for fitting the data would be to fit the thickness at multiple wavelengths
+and then use an average thickness as characteristic for all layers.
+then we should go back and refit the data keeping the thicknesses
+constant (or maybe only varying the thickness of the Al2O3 layer).
+By thus iterating, we should get a better physical model.
+
+I'll complete this section after a student goes through and actually
+does these fits as suggested for the rest of the wavelengths we measured.
+
+\section{Refitting Data}\label{sec:refit}
+This section will have the results of the final fits when we've only
+fit the index of refraction and kept the layer thicknesses the same
+for all samples.
+
+\appendix
+\section{Complete Python Code}
+This is the complete python code I used for the analysis described here.
+\begin{lstlisting}
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Apr 26 11:50:40 2018
+
+@author: rturley
+"""
+
+import refl
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
+
+# log = refl.Log('../ALSdata','Feb2018') # NSF computer
+log = refl.Log() # BYU Computer
+runs = refl.Runs(log)
+
+# dark current calculation
+d7=np.mean(runs[101].diode)
+d8=np.mean(runs[98].diode)
+d9=np.mean(runs[99].diode)
+d10=np.mean(runs[100].diode)
+dark=(d7,d8,d9,d10)
+
+# runs
+s18a = refl.Reflectance((runs[119],),runs[97], dark)
+plt.figure()
+plt.semilogy(s18a.ang, s18a.rfl)
+plt.title('Spectrum 18a')
+s18b = refl.Reflectance((runs[120], runs[121]), runs[97], dark)
+plt.figure()
+plt.semilogy(s18b.ang, s18b.rfl)
+plt.title('Spectrum 18b')
+
+s18 = s18a.filter(2,18) + s18b.filter(18.05,80)
+s18.plot()
+
+# index objects
+AlF3Index = refl.Index("AlF3")
+AlIndex = refl.Index("Al")
+Si3N4Index = refl.Index("Si3N4")
+# interpolated values at 18 nm
+alf3ndx = AlF3Index.at(s18.wavelength)
+alndx = AlIndex.at(s18.wavelength)
+si3n4ndx = Si3N4Index.at(s18.wavelength)
+
+# fit function
+def f(thr, n, k, tf, ta):
+    ndx = np.array([1+0j, n+k*1j, alndx, si3n4ndx])
+    th = np.array([0, tf, ta, 0])
+    sigma = np.array([1.0,0,0]);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength, 0, sigma)
+            for thetad in thr]
+
+alpha = 0.2
+beta = 0.097
+gamma = 5e-5
+sigmap = np.array([alpha*np.exp(-beta*th) for th in s18.ang])
+sigmac = gamma
+sigmaw = np.sqrt(sigmap**2+sigmac**2)
+p0=np.array([0.95, 0.025, 8, 26])
+popt, pcov = curve_fit(f, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+print('n = '+str(round(popt[0],4))+"+/-"+
+      str(round(np.sqrt(pcov[0,0]),4)))
+print('k = '+str(round(popt[1],4))+"+/-"+
+      str(round(np.sqrt(pcov[1,1]),2)))
+print('tf = '+str(round(popt[2],2))+"+/-"+
+      str(round(np.sqrt(pcov[2,2]),2)))
+print('ta = '+str(round(popt[3],4))+"+/-"+
+      str(round(np.sqrt(pcov[3,3]),2)))
+rfit = f(s18.ang, popt[0], popt[1], popt[2], popt[3])
+plt.figure()
+plt.semilogy(s18.ang, s18.rfl,'.',s18.ang, rfit, '-',
+             s18.ang, sigmaw,'-r')
+plt.title('Data and Fit')
+plt.xlabel('grazing angle, deg')
+plt.ylabel('reflectance')
+plt.legend(['data', 'fit','sigma'])
+
+# refit with weights proportional to the data
+sigmap = alpha*np.abs(s18.rfl)
+sigmaw = np.sqrt(sigmap**2+sigmac**2)
+popt, pcov = curve_fit(f, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+print('n = '+str(round(popt[0],4))+"+/-"+
+      str(round(np.sqrt(pcov[0,0]),4)))
+print('k = '+str(round(popt[1],4))+"+/-"+
+      str(round(np.sqrt(pcov[1,1]),2)))
+print('tf = '+str(round(popt[2],2))+"+/-"+
+      str(round(np.sqrt(pcov[2,2]),2)))
+print('ta = '+str(round(popt[3],4))+"+/-"+
+      str(round(np.sqrt(pcov[3,3]),2)))
+rfit = f(s18.ang, popt[0], popt[1], popt[2], popt[3])
+plt.figure()
+plt.semilogy(s18.ang, s18.rfl,'.',s18.ang, rfit, '-')
+plt.title('Data and Fit')
+plt.xlabel('grazing angle, deg')
+plt.ylabel('reflectance')
+plt.legend(['data', 'fit'])
+
+# Check \chi^2
+chi2 = np.sum(((s18.rfl-rfit)/sigmaw)**2)
+print('chi**2 = '+str(round(chi2,1))+" npts = "+
+      str(np.size(sigmaw)))
+
+# Add Al2O3 layer
+Al2O3Index = refl.Index("Al2O3")
+al2o3ndx = Al2O3Index.at(s18.wavelength)
+def f2(thr, n, k, tf, ta, to):
+    ndx = np.array([1+0j, n+k*1j, al2o3ndx, alndx, si3n4ndx])
+    th = np.array([0, tf, to, ta, 0])
+    sigma = np.array([1.0,0,0,0]);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength,
+            0, sigma) for thetad in thr]
+p0=np.array([0.95, 0.025, 8, 26, 1])
+popt, pcov = curve_fit(f2, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+print('n = '+str(round(popt[0],4))+"+/-"+
+      str(round(np.sqrt(pcov[0,0]),4)))
+print('k = '+str(round(popt[1],4))+"+/-"+
+      str(round(np.sqrt(pcov[1,1]),2)))
+print('tf = '+str(round(popt[2],2))+"+/-"+
+      str(round(np.sqrt(pcov[2,2]),2)))
+print('ta = '+str(round(popt[3],4))+"+/-"+
+      str(round(np.sqrt(pcov[3,3]),2)))
+print('to = '+str(round(popt[4],4))+"+/-"+
+      str(round(np.sqrt(pcov[4,4]),4)))
+rfit = f2(s18.ang, popt[0], popt[1], popt[2], popt[3], popt[4])
+plt.figure()
+plt.semilogy(s18.ang, s18.rfl,'.',s18.ang, rfit, '-')
+plt.title('Data and Fit with Oxide Layer')
+plt.xlabel('grazing angle, deg')
+plt.ylabel('reflectance')
+plt.legend(['data', 'fit','sigma'])
+
+# Fit Al index of refraction
+def f3(thr, nf, kf, na, ka, tf, ta):
+    ndx = np.array([1+0j, nf+kf*1j, na+ka*1j, si3n4ndx])
+    th = np.array([0, tf, ta, 0])
+    sigma = np.array([1.0,0,0]);
+    return [refl.Parratt(ndx ,th, thetad, s18.wavelength,
+    		0, sigma) for thetad in thr]
+p0=np.array([0.95, 0.025, alndx.real, alndx.imag, 8, 26])
+popt, pcov = curve_fit(f3, s18.ang, s18.rfl, p0, sigmaw,
+                       absolute_sigma=False)
+print('nf = '+str(round(popt[0],4))+"+/-"+
+      str(round(np.sqrt(pcov[0,0]),4)))
+print('kf = '+str(round(popt[1],4))+"+/-"+
+      str(round(np.sqrt(pcov[1,1]),4)))
+print('na = '+str(round(popt[2],4))+"+/-"+
+      str(round(np.sqrt(pcov[2,2]),4)))
+print('ka = '+str(round(popt[3],4))+"+/-"+
+      str(round(np.sqrt(pcov[3,3]),4)))
+print('tf = '+str(round(popt[4],4))+"+/-"+
+      str(round(np.sqrt(pcov[4,4]),4)))
+print('ta = '+str(round(popt[5],4))+"+/-"+
+      str(round(np.sqrt(pcov[5,5]),4)))
+rfit = f3(s18.ang, popt[0], popt[1], popt[2], popt[3],
+	      popt[4], popt[5])
+plt.figure()
+plt.semilogy(s18.ang, s18.rfl,'.',s18.ang, rfit, '-')
+plt.title('Data and Fit Varyin Al Index')
+plt.xlabel('grazing angle, deg')
+plt.ylabel('reflectance')
+plt.legend(['data', 'fit','sigma'])
+\end{lstlisting}
 
 \end{document}
