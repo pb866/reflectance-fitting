@@ -10,7 +10,7 @@ classdef Reflectance
     
     methods
         function obj = Reflectance(log, runs, i, i0, dark)
-            % Reflectance constuctor, create reflectance data
+            % Reflectance constructor, create reflectance data
             %     Args: log -- Log object with log file
             %           runs -- array of Run data
             %           i -- array of i run numbers

@@ -16,6 +16,7 @@ Created on Tue Aug  4 15:45:52 2015
 
 import numpy as np
 import scipy.interpolate as intp
+import matplotlib.pyplot as plt
 
 def matR(n, t, thetad, lam, sigma=0):
     """Reflectance and transmittance form a multilayer mirror
@@ -99,8 +100,10 @@ def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
     ----------
     n : np.array of index of refractions for stack starting with 
         index of the incident layer
-    n2 : number
-        index of the other layer
+    x : np.array of layer thicknesses for stack starting with
+        the thickness of the incident layer (usually vacuum).
+        The vacuum and substrate thicknesses should be set to
+        0.
     thetad : number
         incident angle in degrees
     lam : number
@@ -139,7 +142,7 @@ def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
     rp = 0
     
     qz = k*np.sin(thetad*np.pi/180) # for Debye-Waller correction
-    if sigma == 0:
+    if len(sigma)==1 and sigma == 0:
         sigma = np.zeros(n.size-1)
     eta = np.exp(-2*qz**2*sigma**2) # Debye-Waller roughness correction
     
@@ -250,3 +253,221 @@ class Index:
         lam=val[:,0]/10
         ndx=val[:,1]+val[:,2]*1j
         self.at=interp1d(lam,ndx,'cubic')
+
+from csv import reader
+
+class Log:
+    """ Information from the log file for an ALS run
+    
+    Constructor Parameters
+    ----------------------
+    path : string
+        Directory where the log file is located
+    prefix : string
+        prefix for the log file name
+        
+    Attribute
+    -------
+    Each attribute is a list indexed by run number.
+    filename: filename for the data file
+    fullname: filename with full path for the data file
+    comment: comment for run
+    date: date of run
+    time: time of run
+    gain: log_10 of the gain of the run
+    wavelength: wavelength (assumed nm)
+    """
+    def __init__(self, path:str = 'X:/ALSData/2018/Feb2018',
+                 prefix:str = 'Feb2018'):
+        self.path = path
+        self.filename = ['']
+        self.fullname = ['']
+        self.comment = ['']
+        self.date = ['']
+        self.time = ['']
+        self.gain = [0]
+        self.wavelength = [0]
+        mypath = path+'/'+prefix+'.log'
+        with open(mypath, newline='') as f:
+            f.readline(); # skip first header line
+            f.readline(); # skip second header line
+            rdr = reader(f, delimiter='\t')
+            for row in rdr:
+                self.filename.append(row[2]);
+                self.fullname.append(path+'/'+row[2])
+                self.comment.append(row[3])
+                self.date.append(row[4])
+                self.time.append(row[5])
+                self.gain.append(float(row[8]))
+                self.wavelength.append(float(row[26]))
+        self.gain = np.array(self.gain)
+        self.wavelength = np.array(self.wavelength)
+
+class Run:
+    """ The parsed data from a raw data file
+    
+    Constructor Parameters
+    ----------------------
+    log : Log
+        log object with filename, gaine, wavelength, etc.
+    run : int
+        run number
+        
+    Attributes
+    ----------
+    var : np.array of float
+        data from first column (usually theta)
+    diode : np.array of float
+        diode reading
+    m3 : np.array of float
+        m3 mirror reading
+    beam : np.array of float
+        beam current
+    wavelength : float
+        wavelength in nm (usually)
+    comment : string
+        comment entered at beginning of run
+    gain : float
+        log10 of gain for run
+    
+    """
+    def __init__(self, log: Log, run: int):
+        self.var = []
+        self.diode = []
+        self.m3 = []
+        self.beam = []
+        with open(log.fullname[run]) as f:
+            f.readline();
+            rdr = reader(f, delimiter='\t')
+            for row in rdr:
+                self.var.append(float(row[0]))
+                self.diode.append(float(row[1]))
+                self.m3.append(float(row[2]))
+                self.beam.append(float(row[3]))
+        self.var = np.array(self.var)
+        self.diode = np.array(self.diode)
+        self.m3 = np.array(self.m3)
+        self.beam = np.array(self.beam)
+        self.wavelength = log.wavelength[run]
+        self.comment = log.comment[run]
+        self.gain = log.gain[run]
+    def plot(self):
+        plt.figure()
+        plt.semilogy(self.var, self.diode)
+        plt.title(self.comment)
+        plt.show()
+
+class Runs:
+    """ A cached collection of Run objects
+    
+    Constructor Parameters
+    ----------------------
+    log : Log
+        The Log object for this run. By default, it is assumed
+        that the data files are stored in the same directory
+        as the log file.
+    prefix : the prefix for the data files in the runs. A full
+        data file name will be <prefix><run number>.dat
+        
+    Method
+    ------
+    [] : overloaded index operator returning a Run object. The
+        first time a run is referenced, the information is read
+        from the raw data. Subsequent accesses used cached data
+        from a dictionary.
+        
+    Example
+    -------
+    log = Log('X:/ALSData/2018/Feb2018','Feb2018')
+    runs = Runs(log)
+    run21 = runs[21]
+    """
+    def __init__(self, log:Log):
+        self.log = log
+        self.rn = {}
+    def __getitem__(self,index):
+        sndx = str(index)
+        if sndx not in self.rn:
+            self.rn[sndx] = Run(self.log, index)
+        return self.rn[sndx]
+    
+class Reflectance:
+    """ Reflectance as a function of incident angle
+    
+    Constructor Parameters
+    ----------------------
+    iruns : tuple of Run
+        runs with the reflected data
+    i0run : Run
+        run with the direct beam data
+    dark : tuple of float
+        dark current for gains 7, 8, 9, and 10
+        
+    Attributes
+    ----------
+    wavlength : float
+        wavelength of this spectrum
+    frs : float
+        fraction of s polarized light in this spectrum
+        
+    Methods
+    -------
+    filter(thmin: float, thmax : float)
+        return a new Spectrum with theta between thmin and thmax
+    +
+        overloaded addition operator to combine spectra
+    """
+    def __init__(self, iruns: tuple=(), i0run: Run=0, dark: tuple=()):
+        if len(iruns)==0:
+            self.wavelength = 0.0
+            self.frs = 0.0
+            self.ang = np.array([])
+            self.rfl = np.array([])
+        else:            
+            ang = np.array([])
+            rfl = np.array([])
+            self.wavelength = iruns[0].wavelength
+            self.frs = fracs(self.wavelength)
+            itrp = intp.interp1d(i0run.var, i0run.diode, 'cubic')
+            ir = itrp(self.wavelength)
+            r0 = (ir-dark[int(i0run.gain)-7])/10**i0run.gain
+            for run in iruns:
+                ang = np.append(ang, run.var)
+                rf = (run.diode-dark[int(run.gain)-7])/10**run.gain
+                rfl = np.append(rfl, rf/r0)
+            ad = np.array([ang, rfl]).T
+            ad = np.array(sorted(ad, key=lambda m:m[0]))
+            self.ang = ad[:,0]
+            self.rfl = ad[:,1]
+        
+    def __add__(self, other):
+        rp = Reflectance()
+        ang = np.concatenate((self.ang, other.ang),axis=0)
+        rfl = np.concatenate((self.rfl, other.rfl),axis=0)
+        ad = np.array([ang, rfl]).T
+        ad = np.array(sorted(ad, key=lambda m:m[0]))
+        rp.ang = ad[:,0]
+        rp.rfl = ad[:,1]
+        rp.wavelength = self.wavelength
+        rp.frs = self.frs
+        return rp
+    
+    def filter(self, minang: float=0, maxang: float = 90):
+        rp = Reflectance()
+        ad = np.array([self.ang, self.rfl]).T
+        ad = np.array([x for x in ad if x[0]>=minang and x[0]<=maxang])
+        rp.ang = ad[:,0]
+        rp.rfl = ad[:,1]
+        rp.wavelength = self.wavelength
+        rp.frs = self.frs        
+        return rp
+    
+    def plot(self):
+        """ plot this reflectance data on a semilog plot with
+        the axes labelled and wavelength given."""
+        plt.figure()
+        plt.semilogy(self.ang, self.rfl, '.')
+        plt.title('Wavelength = '+str(round(self.wavelength,3))+" nm")
+        plt.xlabel('grazing angle, degrees')
+        plt.ylabel('reflectance')
+        plt.show()

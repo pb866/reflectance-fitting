@@ -4,7 +4,7 @@
 close all
 
 % Load the data which was already saved in binary format
-% This should have happened in the intialize script
+% This should have happened in the initialize script
 load('log.mat');
 load('runs.mat');
 load('dark.mat');

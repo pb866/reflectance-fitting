@@ -129,7 +129,7 @@ looks unsymmetrically distributed on a semilog plot as shown here.
 That is because equal values of error in the positive and negative
 directions have unequal weights on a logarithmic scale.
 
-\subsection{Systematic Error}\label{sec-syserr}
+\subsection{Systematic Error}\label{sec:syserr}
 Our models for the reflectance undoubtedly are imperfect. As implemented,
 they don't correctly account for variations in layer thickness, interfacial
 roughness, and incorrect assumptions about material thicknesses and
@@ -149,7 +149,6 @@ for this case.
 	\caption{\label{fig:with-and-without}Reflectance from model mirror with and
 		without the SiO$_2$ layer}
 \end{figure}
-
 
 \section{Fits}
 The process of weighted least squares fitting involves minimizing
@@ -451,6 +450,42 @@ a plot of the normalized residuals in this case.
 \subsection{Combined Errors}
 Of course, in practice, we can anticipate a combination
 of statistical and systematic errors.
+
+Figure~\ref{fig:res-sp} is a plot of the residuals from the
+proportionally-weighted
+fit in Figure~\ref{fig:res-propweight}. The residual at each point
+is correlated with the residual at neighboring points. Also,
+the residual is larger at larger angles with the systematic
+error is more pronounced.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/res-sp}
+  \end{center}
+  \caption{\label{fig:res-sp}Weighted residuals
+  for a fit with systematic error using proportional weights}
+\end{figure}
+
+Compare this with Figure~\ref{fig:res-su} which shows the residual
+with an unweighted fit.
+\begin{figure}[htb]
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{images/res-su}
+  \end{center}
+  \caption{\label{fig:res-su}Weighted residuals
+  for a fit with systematic error using proportional weights}
+\end{figure}
+In this case, the residual is more evenly spread among all of the
+angles, which would have been a good thing with statistical
+errors. However, for a "good" fit, we would expect to have
+larger residuals (and larger weights) in the places we expect
+the model to be worse.
+
+This leaves me with a conundrum about how to best pick the weights
+in cases of when there is a systematic error. It seems like the best
+thing to do would be to have the weights loosely correspond to where
+the systematic error is the largest. I know where this is with simulated
+data like I've used here, but it could be hard to decide what to
+use with real data.
 
 \appendix
 
