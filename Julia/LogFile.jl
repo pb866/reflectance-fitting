@@ -7,7 +7,7 @@ end
 
 # Read in AlF3 data from Zoe's log file (doctored)
 function LogFile()
-	LogFile(CSV.read(joinpath(dataDir,"July2016.csv"),delim="\t",datarow=33))
+	LogFile(CSV.read(joinpath(dataDir,"July2016.tsv"),delim="\t",datarow=33))
 end
 
 # Return the comment for a run
@@ -21,6 +21,10 @@ end
 
 function gain(lf ::LogFile, run::Int)
 	lf.data[run,Symbol("gain/count1")]
+end
+
+function wavelength(lf ::LogFile, run::Int)
+	lf.data[run, :mono]
 end
 
 function x(lf ::LogFile, run::Int)
