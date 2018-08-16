@@ -1,0 +1,2 @@
+struct Index
+end
