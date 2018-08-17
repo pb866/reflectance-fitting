@@ -6,11 +6,16 @@ using PyPlot
 
 # If true, the data will be reinitialized
 initRead = false
+# If true, plot the dark current data
+darkPlots = false
+# If true, unfit reflectance data is plotted for each run
+reflPlots = true
 
 if initRead
   # To initially read everything
   # This will take a long time
   lf = LogFile()
+  println("Reading all data files, please be patient...")
   alldata = [Run(lf, rnum) for rnum = 1:ALS.runs(lf)];
   # Serialize it so it is faster next time
   f=open("alldata.bin",write=true)
@@ -53,13 +58,117 @@ function dplot(runList, gain::Int)
 	y = mean.(runList)
 	vy = std.(runList)
 	figure()
-	errorbar(x, y, vy, fmt="o")
+	errorbar(x, y, vy, fmt="o", capsize=5)
 	title("Dark Current for Gain $gain")
 	xlabel("run")
 	ylabel("mean dark current")
 end
 
-dplot(gain7_runs, 7)
-dplot(gain8_runs, 8)
-dplot(gain9_runs, 9)
-dplot(gain10_runs, 10)
+if darkPlots
+  dplot(gain7_runs, 7)
+  dplot(gain8_runs, 8)
+  dplot(gain9_runs, 9)
+  dplot(gain10_runs, 10)
+end
+
+# Reflectance data
+
+# 41.3 nm
+inum = 19
+irun = alldata[inum];
+i0run = alldata[11];
+darkrun = alldata[12];
+dark0run = alldata[13];
+lambda = wavelength(lf, inum)
+r41p3 = Reflectance(irun, i0run, darkrun, dark0run, lambda)
+# drop first points
+r41p3 = sub(r41p3, min=1.0)
+
+# 45 nm
+inum = 20
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r45 = Reflectance(irun, i0run, darkrun, dark0run, lambda)
+# drop first point
+r45 = sub(r45, min=1.0)
+
+# 35 nm
+inum = 21
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r35 = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=1.0)
+
+# 30 nm
+inum = 22
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r30 = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=4.0)
+
+# 27 nm
+inum = 23
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r27 = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+# 26 nm
+inum = 24
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r26 = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+# 25 nm
+inum = 25
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r25 = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+
+# 31 nm with a different order sorter filter
+inum = 31
+irun = alldata[inum];
+i0run = alldata[26];
+darkrun = alldata[28];
+dark0run = alldata[27];
+lambda = wavelength(lf, inum)
+last_lambda = i0run.x[length(i0run.x)]
+if lambda>last_lambda
+    lambda = last_lambda
+end
+r30b = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=4.0)
+
+# 27 nm with a different order sorter filter
+inum = 32
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r27b = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+# 26 nm with a different order sorter filter
+inum = 33
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r26b = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+# 25 nm with a different order sorter filter
+inum = 34
+irun = alldata[inum];
+lambda = wavelength(lf, inum)
+r25b = sub(Reflectance(irun, i0run, darkrun, dark0run, lambda), min=2.0)
+
+# On plot2 below, red does are the first spectrum and green the second
+if reflPlots
+    plot(r45)
+    plot(r41p3)
+    plot(r35)
+    plot(r30)
+    plot(r30)
+    plot2(r30, r30b)
+    plot(r27)
+    plot(r27b)
+    plot2(r27,r27b)
+    plot(r26)
+    plot(r26b)
+    plot2(r26,r26b)
+    plot(r25)
+    plot(r25b)
+    plot2(r25,r25b)
+end
