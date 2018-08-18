@@ -37,15 +37,15 @@ Y''_{i-1}(x_i) &= Y''_i(x_i)\;. \label{eq:c2}
 In addition to these equations, the spline also needs to match
 at the two endpoints.
 \begin{align}
-Y_1{x_1} &= y_1\\
+Y_1(x_1) &= y_1\\
 Y_n(x_{n+1}) &= y_{n+1}
 \end{align}
 This gives a total of $4n-2$ equations and $4n$ unknowns. There
 are several ways to choose the last two conditions. I will use the
 specification that the second derivative be zero at the two endpoints.
 \begin{align}
-Y''_1{x_1} &= 0\\
-Y''_{n+1}(x_{n+1}) &= 0
+Y''_1(x_1) &= 0 \label{eq:bslope}\\
+Y''_{n+1}(x_{n+1}) &= 0 \label{eq:eslope}
 \end{align}
 
 \section{Regularly-Spaced Points}
@@ -77,17 +77,17 @@ Y_i(t) = a_i + b_i t + c_i t^2 + d_i t^3 .
 Then these coefficients can be solved for in terms of the
 values $y_i$ and the derivatives $D_i = Y'_i(0)$.
 \begin{align}
-Y_i(0)&=y_i = a_i\\
+Y_i(0)&=y_i = a_i \label{eq:Yi0}\\
 Y_i(1)&=y_{i+1} = a_i + b_i + c_i + d_i\\
 Y'_i(0) &= D_i = b_i\\
-Y'_i(1) &= D_{i+1} = b_i + 2 c_i + 3 d_i
+Y'_i(1) &= D_{i+1} = b_i + 2 c_i + 3 d_i \label{eq:Ypi1}
 \end{align}
 These equations can be solved for the cubic coefficients in
 terms of $y_i$ and $D_i$.
 \begin{align}
 a_i &= y_i \label{eq:ai}\\
 b_i &= D_i\\
-c_i &= 3(y_{i+1}-y_i)-2D_i-D_{i+1}\\
+c_i &= 3(y_{i+1}-y_i)-2D_i-D_{i+1} \label{eq:ci}\\
 d_i &= 2(y_i-y_{i+1})+D_i +D_{i+1} \label{eq:di}
 \end{align}
 Weisstein shows that these equations can be rewritten as
@@ -115,6 +115,7 @@ D_1\\D_2\\D_3\\D_4\\ \vdots\\D_n\\D_{n+1}
 3(y_{n+1}-y_n)
 \end{array}\right).\label{eq:eqtd}
 \end{equation}
+My derivation of this is in Appendix~\ref{sec:reg-deriv}.
 Equation~\ref{eq:eqtd} can be solved with an efficient symmetric
 tridiagonal solver in Julia for the unknown values $D_i$. Once those
 are known, Equations~\ref{eq:ai} through \ref{eq:di} can be used
@@ -134,8 +135,144 @@ respect to $x$ are no longer the same as the conditions on the
 derivatives with respect to $t$.
 \begin{align}
 Y'_i(x) &= Y'_i(t)\frac{dt}{dx}\\
-&= \frac{Y'_i(t)}{\alpha_i}
+&= \frac{Y'_i(t)}{\alpha_i}\\
+Y''_i(x) &= Y''_i(t)\left(\frac{dt}{dx}\right)^2 +
+	Y'_i(t)\frac{d^2t}{dx^2}\\
+	&= \frac{Y''_i(t)}{\alpha_i^2}
 \end{align}
+With this change, Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
+become
+\begin{align}
+Y_i(0)&=y_i = a_i \label{eq:Yi0a}\\
+Y_i(1)&=y_{i+1} = a_i + b_i + c_i + d_i\\
+Y'_i(0) &= D_i = b_i\\
+\frac{Y'_i(1)}{\alpha_i} &= \frac{D_{i+1}}{\alpha_{i+1}}
+ = \frac{b_i + 2 c_i + 3 d_i}{\alpha_i}. \label{eq:Ypi1a}
+\end{align}
+Note that Equation~\ref{eq:Ypi1a} predicts possible
+wild behavior in the derivative if
+a region with a large $\alpha_i$ next to a region
+with a small $\alpha_i$. In this case, it might make sense to
+use a linear interpolation between those points, even though
+that will result in discontinuous slopes and second derivatives
+at the knots. Appendix~\ref{sec:irreg-deriv} derives the following
+matrix equation as a solution for $D_i$ in terms of
+$y_i$ and $\alpha_i$.
+\begin{align}
+\left(\begin{array}{ccccc}
+2&1\\
+  \alpha_1^{-2}&2(\alpha_1^{-2}+\alpha_2^{-2})&\alpha_2^{-2}\\
+ &\alpha_2^{-2}&2(\alpha_2^{-2}+\alpha_3^{-2})&\alpha_3^{-2}\\
+\vdots&\ddots&\ddots&\ddots&\ddots\\
+&&\alpha_{n-1}^{-2}&2(\alpha_{n-1}^{-2}+\alpha_n^{-2})&\alpha_n^{-2}\\
+&&&1&2
+\end{array}\right)
+\left(\begin{array}{c}
+D_1\\D_2\\D_3\\ \vdots\\D_n\\D_{n+1}
+\end{array}\right) =\\
+\left(\begin{array}{c}
+3(y_2-y_1)\\
+3[y_3\alpha_2^{-2}
+	+y_2(\alpha_1^{-2}
+	-\alpha_2^{-2})
+	-y_1\alpha_1^{-2}]\\
+3[y_4\alpha_3^{-2}
+	+y_3(\alpha_2^{-2}
+	-\alpha_3^{-2})
+	-y_2\alpha_2^{-2}]\\
+\vdots\\
+3[y_{n+1}\alpha_n^{-2}+y_n(\alpha_{n-1}^{-2}
+	-\alpha_n^{-2})-y_{n-1}\alpha_{n-1}^{-2}]\\
+3(y_{n+1}-y_n)
+\end{array}\right).\label{eq:eqtdi}
+\end{align}
+% just to be safe for later
+
+\appendix
+\section{Solution for Regularly-Spaced Points}\label{sec:reg-deriv}
+The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
+by eliminating the cubic coefficients and only having equations
+in terms of the $y_i$ and $D_i$ variables. We first need to
+add two more equations.
+\begin{align}
+Y''_i(0) &= 2c_i\label{eq:ypp0}\\
+Y''_i(1) &= Y''_{i+1}(0) = 2c_i+6d_i\label{eq:yppn}\\
+c_{i+1} &= c_i + 3d_i. \label{eq:cd}
+\end{align}
+Substituting in the values for $c_i$ from Equation~\ref{eq:ci} and
+$d_i$ from Equation~\ref{eq:di}, Equation~\ref{eq:cd} becomes
+\begin{multline}
+3(y_{i+2}-y_{i+1})-2D_{i+1}-D_{i+2} = 3(y_{i+1}-y_i)-2D_i-D_{i+1}\\
+	+3[2(y_i-y_{i+1})+D_i+D_{i+1}].
+\end{multline}
+Grouping the $y$ variables on one side of the equation and the $D$
+variables on the other,
+\begin{equation}
+3(y_{i+2}-y_i) = D_{i+2} +4D{i+1} +D_i.
+\end{equation}
+This accounts for the middle rows of Equation~\ref{eq:eqtd}. The
+top and bottom rows come from the initial and final conditions
+in Equations~\ref{eq:bslope} and \ref{eq:eslope}. Combining
+Equations~\ref{eq:bslope}, \ref{eq:ypp0}, and \ref{eq:ci},
+\begin{align}
+2c_1 & = 0\\
+3(y_2-y_1) &= 2D_1 + D_2,
+\end{align}
+which is the first row of Equation~\ref{eq:eqtd}. Combining
+Equations~\ref{eq:eslope}, \ref{eq:yppn}, \ref{eq:ci}, and
+\ref{eq:di},
+\begin{align}
+2c_n+6d_n &= 0\\
+3(y_{n+1}-y_n)-2D_n-D_{n+1}+3[2(y_n-y_{n+1})+D_n+D_{n+1}] &= 0\\
+3(y_n-y_{n+1}) &= D_n+2D_{n+1},
+\end{align}
+which is the bottom row of Equation~\ref{eq:eqtd}.
+
+\section{Solution for Irregularly-Spaced Points}\label{sec:irreg-deriv}
+The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
+by eliminating the cubic coefficients and only having equations
+in terms of the $y_i$, $D_i$, and $\alpha_i$ variables.
+We first need to add two more equations.
+\begin{align}
+Y''_i(0) &= 2c_i\label{eq:ypp0i}\\
+\frac{Y''_i(1)}{\alpha_i^2} &= \frac{Y''_{i+1}(0)}{\alpha_{i+1}^2}
+ = \frac{2c_i+6d_i}{\alpha_i^2}\label{eq:yppni}\\
+\frac{c_{i+1}}{\alpha_{i+1}^2} &=
+	\frac{c_i + 3d_i}{\alpha_i^2}. \label{eq:cdi}
+\end{align}
+Substituting in the values for $c_i$ from Equation~\ref{eq:ci} and
+$d_i$ from Equation~\ref{eq:di}, Equation~\ref{eq:cdi} becomes
+\begin{multline}
+\frac{3(y_{i+2}-y_{i+1})-2D_{i+1}-D_{i+2}}{\alpha_{i+1}^2} = \\
+	\frac{3(y_{i+1}-y_i)-2D_i-D_{i+1}
+	+3[2(y_i-y_{i+1})+D_i+D_{i+1}]}{\alpha_i^2}.
+\end{multline}
+Grouping the $y$ variables on one side of the equation and the $D$
+variables on the other,
+\begin{equation}
+3\left[\frac{y_{i+2}}{\alpha_{i+1}^2}+y_{i+1}\left(\frac{1}{\alpha_i^2}
+	-\frac{1}{\alpha_{i+1}^2}\right)-\frac{y_i}{\alpha_i^2}\right]
+	= \frac{D_{i+2}}{\alpha_{i+1}^2}
+		+2D_{i+1}\left(\frac{1}{\alpha_i^2}+\frac{1}{\alpha_{i+1}^2}\right)
+		+\frac{D_i}{\alpha_i^2}.
+\end{equation}
+This accounts for the middle rows of Equation~\ref{eq:eqtdi}. The
+top and bottom rows come from the initial and final conditions
+in Equations~\ref{eq:bslope} and \ref{eq:eslope}. Combining
+Equations~\ref{eq:bslope}, \ref{eq:ypp0i}, and \ref{eq:ci},
+\begin{align}
+2c_1 & = 0\\
+3(y_2-y_1) &= 2D_1 + D_2,
+\end{align}
+which is the first row of Equation~\ref{eq:eqtdi}. Combining
+Equations~\ref{eq:eslope}, \ref{eq:yppni}, \ref{eq:ci}, and
+\ref{eq:di},
+\begin{align}
+2c_n+6d_n &= 0\\
+3(y_{n+1}-y_n)-2D_n-D_{n+1}+3[2(y_n-y_{n+1})+D_n+D_{n+1}] &= 0\\
+3(y_n-y_{n+1}) &= D_n+2D_{n+1},
+\end{align}
+which is the bottom row of Equation~\ref{eq:eqtd}.
 
 \begin{thebibliography}{9}
 
