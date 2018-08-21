@@ -188,6 +188,36 @@ D_1\\D_2\\D_3\\ \vdots\\D_n\\D_{n+1}
 \end{align}
 % just to be safe for later
 
+\section{Cubic Spline Results}
+My implementation of these results(which isn't necessarily bug free)
+shows excessive oscillation of the splines for irregularly spaced
+points. Doing the same calculation in Matlab gives better results.
+I could have an unstable algorithm, an error in the implementation,
+or an error in the derivation. In any case, piece-wise hermite polynomial
+may be a better way to go. The following references are in the Matlab
+documentation of the pchip function\cite{Fritsch,Kahaner}.
+
+\section{Piece-wise Hermit Polynomial Interpolation}
+\subsection{Derivatives}
+The formulas in the previous section require the computation of
+numerical derivatives at each knot. With equally-spaced knots, this
+is probably best done using the straightforward "three point formula."
+\begin{equation}
+f'(b) \approx \frac{f(c)-f(a)}{2h},
+\end{equation}
+where $a$ and $c$ are the points to the left and right of $b$
+respectively. If the points are not equally spaced, a somewhat less
+accurate formula can be found from the average of the forward
+and backward difference formulas.
+\begin{align}
+f'(b) &\approx \frac{f'_b(b)+f'_f(b)}{2}\\
+&= \frac{f(b)-f(a)}{2(b-a)}+\frac{f(c)-f(b)}{2(c-b)}\\
+&= \frac{f(c)}{2(c-b)}+f(b)\left(\frac{1}{2(b-a)}-\frac{1}{2(c-b)}\right)
+	-\frac{f(a)}{2(b-a)}\\
+&= \frac{f(c)}{2(c-b)}+f(b)\frac{a+c-2b}{2(b-a)(c-b)}
+	-\frac{f(a)}{2(b-a)}
+\end{align}
+
 \appendix
 \section{Solution for Regularly-Spaced Points}\label{sec:reg-deriv}
 The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
@@ -285,6 +315,12 @@ Weisstein, Eric W. "Cubic Spline." From
 \textit{An Introduction to Splines for Use in Computer Graphics
 and Geometric Modelling}. San Francisco, CA: Morgan Kaufmann,
 pp. 9--17, 1998.
+
+\bibitem{Fritsch}
+Fritsch, F. N. and R. E. Carlson. "Monotone Piecewise Cubic Interpolation." SIAM Journal on Numerical Analysis. Vol. 17, 1980, pp.238-–246.
+
+\bibitem{Kahaner}
+Kahaner, David, Cleve Moler, Stephen Nash. Numerical Methods and Software. Upper Saddle River, NJ: Prentice Hall, 1988.
 
 \end{thebibliography}
 
