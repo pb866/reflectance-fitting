@@ -2,18 +2,24 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{url}
-\title{Cubic Splines with Irregularly Spaced Points}
-\subtitle{Version 0.1}
+\title{Cubic Interpolation with Irregularly Spaced Points}
+\subtitle{Version 0.2}
 \author{R. Steven Turley}
-\date{August 17, 2018}
+\date{August 21, 2018}
 \begin{document}
 \maketitle
 \tableofcontents
 
 \section{Introduction}
 This is the mathematics and some implementation details
-behind a derivation of 1d cubic spline interpolation with
-regularly and irregularly spaced points.
+behind a derivation of 1d cubic piece-wise continuous
+interpolation with regularly and irregularly spaced points.
+I will explore two ways to compute this cubics: splines and
+Hermite polynomials. Both are continuous and have continuous
+derivatives at the knots. Splines also have continuous second
+derivatives.
+
+\section{Cubic Splines}
 
 I will use the article on splines for a regularly-spaced
 grid in MathWorld\cite{mathworld} as a basis for my
@@ -48,7 +54,7 @@ Y''_1(x_1) &= 0 \label{eq:bslope}\\
 Y''_{n+1}(x_{n+1}) &= 0 \label{eq:eslope}
 \end{align}
 
-\section{Regularly-Spaced Points}
+\subsection{Regularly-Spaced Points}
 
 The spline equations can be solved with a particularly elegant
 form for the case of equally spaced knots. It is useful to put the
@@ -121,7 +127,7 @@ tridiagonal solver in Julia for the unknown values $D_i$. Once those
 are known, Equations~\ref{eq:ai} through \ref{eq:di} can be used
 to solve for $a_i$, $b_i$, $c_i$, and $d_i$.
 
-\section{Irregularly-Spaced Points}
+\subsection{Irregularly-Spaced Points}
 If the points $x_i$ are not regularly spaced, $\alpha$ in
 Equations~\ref{eq:xt} and \ref{eq:alpha} needs to be replaced
 with $\alpha_i$ which will vary in each interval.
@@ -188,7 +194,7 @@ D_1\\D_2\\D_3\\ \vdots\\D_n\\D_{n+1}
 \end{align}
 % just to be safe for later
 
-\section{Cubic Spline Results}
+\subsection{Cubic Spline Results}
 My implementation of these results(which isn't necessarily bug free)
 shows excessive oscillation of the splines for irregularly spaced
 points. Doing the same calculation in Matlab gives better results.
@@ -197,29 +203,84 @@ or an error in the derivation. In any case, piece-wise hermite polynomial
 may be a better way to go. The following references are in the Matlab
 documentation of the pchip function\cite{Fritsch,Kahaner}.
 
-\section{Piece-wise Hermit Polynomial Interpolation}
+\section{Piece-wise Hermite Polynomials}
 \subsection{Derivatives}
 The formulas in the previous section require the computation of
-numerical derivatives at each knot. With equally-spaced knots, this
+numerical derivatives at each knot.
+\subsubsection{Equally-Spaced Points}
+With equally-spaced knots, this
 is probably best done using the straightforward "three point formula."
 \begin{equation}
-f'(b) \approx \frac{f(c)-f(a)}{2h},
+y'_i \approx \frac{y_{i+1}-y_{i-1}}{2h},\label{eq:ceq}
 \end{equation}
-where $a$ and $c$ are the points to the left and right of $b$
-respectively. If the points are not equally spaced, a somewhat less
+where $h=y_2-y_1=y_3-y_2$.
+This formula is accurate to second order in $h$ as can be seen
+from a Taylor series expansion of $f(x)$ about the point $x_i$.
+\begin{equation}
+f(x)=f(x_i)+f'(x_i)(x-x_i)+\frac{1}{2}f''(x_i)(x-x_i)^2+
+	\frac{1}{6}f'''(x_i)(x-x_i)^3\label{eq:Taylor}
+\end{equation}
+Substituting Equation~\ref{eq:Taylor} into Equation~\ref{eq:ceq}
+with $y_{i+1}=f(x_i+h)$, $y_{i-1}=f(x_i-h)$ and
+$h=x_i-x{i-1}=x_{i+1}-x_i$ yields
+\begin{equation}
+y'_i=f'(x_i)=f'(x_i)+\frac{1}{6}f'''(x_i)h^2.
+\end{equation}
+\subsubsection{Unequally-Spaced Points}
+If the points are not equally spaced, a somewhat less
 accurate formula can be found from the average of the forward
 and backward difference formulas.
 \begin{align}
-f'(b) &\approx \frac{f'_b(b)+f'_f(b)}{2}\\
-&= \frac{f(b)-f(a)}{2(b-a)}+\frac{f(c)-f(b)}{2(c-b)}\\
-&= \frac{f(c)}{2(c-b)}+f(b)\left(\frac{1}{2(b-a)}-\frac{1}{2(c-b)}\right)
-	-\frac{f(a)}{2(b-a)}\\
-&= \frac{f(c)}{2(c-b)}+f(b)\frac{a+c-2b}{2(b-a)(c-b)}
-	-\frac{f(a)}{2(b-a)}
+f'(x_i) &\approx \frac{f'_b(x_i)+f'_f(x_i)}{2}\\
+&= \frac{y_i-y_{i-1}}{2h_b}+\frac{y_{i+1}-y_i)}{2h_f}\\
+&= \frac{y_{i+1}}{2h_f}+y_i\left(\frac{1}{2h_b}-\frac{1}{2h_f}\right)
+	-\frac{y_{i-1}}{2h_b} \label{eq:cuneq}\\
+&= \frac{y_{i+1}}{2h_f}+y_i\frac{h_f-h_b}{2h_f h_b}
+	-\frac{y_{i-1}}{2h_b}
 \end{align}
+where $h_f=y_{i+1}-y{i}$ and $h_b=y_i-y_{i-1}$.
+Substituting the Equation~\ref{eq:Taylor} for the terms
+in Equation~\ref{eq:cuneq} shows the error in this formula.
+\begin{align}
+\frac{f(x_{i+1})}{2h_f} &= \frac{f(x_i)}{2h_f}+\frac{f'(x_i)}{2}+
+	\frac{1}{4}h_f f''(x_i)+\cdots\\
+\frac{f(x_{i-1})}{2h_b} &= \frac{f(x_i)}{2h_b}-\frac{f'(x_i)}{2}+
+	\frac{1}{4}h_b f''(x_i)+\cdots\\
+\frac{f(x_{i+1})}{2h_f}+f(x_i)\left[\frac{1}{2h_b}-\frac{1}{2h_f}\right]
+	-\frac{f(x_{i-1})}{2h_b} &= f'(x_i)+\frac{1}{4}f''(x_i)(h_f-h_b)+\cdots
+\end{align}
+Thus, the error in this case in linear in $h$ and proportional to
+$f''(x_i)$ instead of $f'''(x_i)$ as is the case for equally spaced
+points.
+
+Another way to find a derivative is to find the quadratic polynomial
+which goes through the three points and take the derivative of that.
+Let
+\begin{equation}
+f(x)=a+b(x-x_i)+c(x-x_i)^2.
+\end{equation}
+At the point $f(x_{i-1}) = y_{i-1}$
+\begin{equation}
+y_{i-1} = a-bh_b+ch_b^2.\label{eq:ym}
+\end{equation}
+At the point $f(x_i)= y_i$
+\begin{equation}
+y_i = a. \label{eq:yi}
+\end{equation}
+At the point $f(x_{i+1}) = y_{i+1}$
+\begin{equation}
+y_{i+1} = a+bh_f+ch_f^2.\label{eq:yp}
+\end{equation}
+Substituting Equation~\ref{eq:yi} into Equation~\ref{eq:ym}
+and Equation~\ref{eq:yi}, solving the remaining equations for $c$
+and then equating them to solve for $b$ yields
+\begin{equation}
+b = f'(x_i) = \frac{(y_i-y{i-1})h_f}{h_b(h_f+h_b)}+
+	\frac{(y_{i+1}-y{i})h_b}{h_f(h_f+h_b)}.
+\end{equation}
 
 \appendix
-\section{Solution for Regularly-Spaced Points}\label{sec:reg-deriv}
+\section{Spline Solution for Regularly-Spaced Points}\label{sec:reg-deriv}
 The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
 by eliminating the cubic coefficients and only having equations
 in terms of the $y_i$ and $D_i$ variables. We first need to
@@ -258,7 +319,7 @@ Equations~\ref{eq:eslope}, \ref{eq:yppn}, \ref{eq:ci}, and
 \end{align}
 which is the bottom row of Equation~\ref{eq:eqtd}.
 
-\section{Solution for Irregularly-Spaced Points}\label{sec:irreg-deriv}
+\section{Spline Solution for Irregularly-Spaced Points}\label{sec:irreg-deriv}
 The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
 by eliminating the cubic coefficients and only having equations
 in terms of the $y_i$, $D_i$, and $\alpha_i$ variables.

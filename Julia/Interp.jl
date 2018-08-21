@@ -3,6 +3,7 @@ module Interp
 using LinearAlgebra
 using Test
 using PyPlot
+using Base.length
 
 unit_tests = true
 
@@ -259,6 +260,17 @@ end
 if unit_tests
     do_tests()
     graphics_tests()
+end
+
+struct Hermite
+    x::Array{Float64, 1}
+    y::Array{Float64,1}
+    d::Array{Float64,1}
+end
+
+function Hermite(x::Array{Float64,1}, y::Array{Float64,1})
+    d=zeros(length(x))
+    d[1] = 
 end
 
 end # module Interp
