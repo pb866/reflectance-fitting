@@ -197,7 +197,38 @@ D_1\\D_2\\D_3\\ \vdots\\D_n\\D_{n+1}
 \subsection{Cubic Spline Results}
 My implementation of these results(which isn't necessarily bug free)
 shows excessive oscillation of the splines for irregularly spaced
-points. Doing the same calculation in Matlab gives better results.
+points. Figure~\ref{fig:regSpline} is my interolation of a spline
+curve for regularly spaced points using my spline routine.
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{regSpline}
+\end{center}
+\caption{\label{fig:regSpline}Spline interpolation with regularly spaced
+points for $\sin(x), x=0,\pi$. The large circles are the data, the dotted
+line the exact curve and the orange line the spline curve.}
+\end{figure}
+Figure~\ref{fig:irregSpline} is the same calculation using irregularly
+spaced points.
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{irregSpline}
+\end{center}
+\caption{\label{fig:irregSpline}Spline interpolation with irregularly
+spaced points for $\sin(x), x=0,\pi$. The large circles are the data,
+the dotted line the exact curve and the orange line the spline curve.}
+\end{figure}
+Note extra oscillations which occur in this case.
+Doing the same calculation in Matlab gives better results.
+Figure~\ref{fig:matSpline} is the same calculation done in Matlab
+with irregularly spaced points.
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{matSpline}
+\end{center}
+\caption{\label{fig:matSpline}Spline interpolation using Matlab
+spline routine with irregularly spaced points.
+Compare to Figure~\ref{fig:irregSpline}.}
+\end{figure}
 I could have an unstable algorithm, an error in the implementation,
 or an error in the derivation. In any case, piece-wise hermite polynomial
 may be a better way to go. The following references are in the Matlab

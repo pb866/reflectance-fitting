@@ -3,7 +3,7 @@ module Interp
 using LinearAlgebra
 using Test
 using PyPlot
-using Base.length
+import Base.length
 
 unit_tests = true
 
@@ -270,7 +270,7 @@ end
 
 function Hermite(x::Array{Float64,1}, y::Array{Float64,1})
     d=zeros(length(x))
-    d[1] = 
+    # d[1] =
 end
 
 end # module Interp
