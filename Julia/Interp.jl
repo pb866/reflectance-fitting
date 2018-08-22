@@ -5,7 +5,8 @@ using Test
 using PyPlot
 import Base.length
 
-unit_tests = true
+unitTests = true
+graphicsTests = false
 
 """
     CubicSpline(x,a,b,c,d)
@@ -42,28 +43,31 @@ function CubicSpline(x::Array{Float64,1}, y::Array{Float64,1})
     du = zeros(len-1)
     dd = zeros(len)
     alpha = x[2:len].-x[1:len-1]
-    yy[1] = 3*(y[2]-y[1])
-    du[1] = 1
-    dd[1] = 2
+    yy[1] = 3*(y[2]-y[1])/alpha[1]^2
+    du[1] = 1/alpha[1]
+    dd[1] = 2/alpha[1]
     for i=2:len-1
         yy[i] = 3*(y[i+1]/alpha[i]^2+
             y[i]*(alpha[i-1]^(-2)-alpha[i]^(-2))-
             y[i-1]/alpha[i-1]^2)
-        dl[i-1] = alpha[i-1]^(-2)
-        du[i] = dl[i-1]
-        dd[i] = 2*(alpha[i-1]^(-2)+alpha[i]^(-2))
+        dl[i-1] = 1/alpha[i-1]
+        du[i] = 1/alpha[i]
+        dd[i] = 2*(1/alpha[i-1]+1/alpha[i])
     end
-    yy[len] = 3*(y[len]-y[len-1])
-    dl[len-1] = 1
-    dd[len] = 2
+    yy[len] = 3*(y[len]-y[len-1])/alpha[len-1]^2
+    dl[len-1] = 1/alpha[len-1]
+    dd[len] = 2/alpha[len-1]
     # Solve the tridiagonal system for the derivatives D
     dm = Tridiagonal(dl,dd,du)
     D = dm\yy
     # fill the arrays of spline coefficients
     a = y[1:len-1]  # silly but makes the code more transparent
     b = D[1:len-1]  # ditto
-    c = 3 .*(y[2:len].-y[1:len-1]).-2*D[1:len-1].-D[2:len]
-    d = 2 .*(y[1:len-1].-y[2:len]).+D[1:len-1].+D[2:len]
+    c = 3 .*(y[2:len].-y[1:len-1])./alpha[1:len-1].^2 .-
+        2*D[1:len-1]./alpha[1:len-1].-D[2:len]./alpha[1:len-1]
+    d = 2 .*(y[1:len-1].-y[2:len])./alpha[1:len-1].^3 .+
+        D[1:len-1]./alpha[1:len-1].^2 .+
+        D[2:len]./alpha[1:len-1].^2
     CubicSpline(x,a,b,c,d)
 end
 
@@ -113,7 +117,13 @@ function interp(cs::CubicSpline, v::Float64)
         error("Extrapolation not allowed")
     end
     segment = region(cs.x, v)
-    t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
+    if typeof(cs.x)==Array{Float64,1}
+        # irregularly spaced points
+        t = v-cs.x[segment]
+    else
+        # regularly spaced points
+        t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
+    end
     cs.a[segment] + t*(cs.b[segment] + t*(cs.c[segment] + t*cs.d[segment]))
 end
 
@@ -185,6 +195,7 @@ function do_tests()
     x = [0.0, 1.0, 2.0, 3.0, 4.0]
     y = sin.(x)
     csi = CubicSpline(x,y)
+
     @testset "irregular interpolation" begin
     # Test not enough points exception
     x = [1.0, 2.0]
@@ -209,7 +220,6 @@ function do_tests()
     x = [0.0, 1.0, 2.0, 3.0, 4.0]
     y = sin.(x)
     csi = CubicSpline(x,y)
-    dy = cos.(x)
     for i = 1:4
         @test csi.a[i] == cs.a[i]
         @test csi.b[i] == cs.b[i]
@@ -217,9 +227,44 @@ function do_tests()
         @test csi.d[i] == cs.d[i]
         @test csi.a[i] == y[i]
         @test isapprox(csi.a[i] + csi.b[i] + csi.c[i] + csi.d[i], y[i+1], atol=1.e-12)
-        @test isapprox(csi.b[i], dy[i], atol=0.08)
-        @test isapprox(csi.b[i] + 2*csi.c[i] + 3*csi.d[i], dy[i+1], atol=0.25)
     end
+    # Check meeting knot conditions
+    for i = 1:3
+        di = csi.b[i+1]
+        dip = csi.b[i] + 2*csi.c[i] + 3*csi.d[i]
+        @test isapprox(di, dip, atol=1.e-12)
+        ddi = 2*csi.c[i+1]
+        ddip = 2*csi.c[i]+6*csi.d[i]
+        @test isapprox(ddi, ddip, atol=1.e-12)
+    end
+    # Second derivatives at end points
+    @test isapprox(csi.c[1], 0.0, atol = 1.e-12)
+    @test isapprox(2*csi.c[4]+6*csi.d[4], 0.0, atol = 1.e-12)
+    # Test matching boundary conditions with unequally spaced knots
+    x = [0.0, 0.7, 2.3, 3.0, 4.1]
+    y = sin.(x)
+    csi = CubicSpline(x,y)
+    for i = 1:4
+        @test csi.a[i] == y[i]
+        alpha = x[i+1]-x[i]
+        yend = csi.a[i] + csi.b[i]*alpha + csi.c[i]*alpha^2
+         + csi.d[i]*alpha^3
+        @test isapprox(yend, y[i+1], atol=1.e-12)
+    end
+    # Check meeting knot conditions
+    # All of the test in the following loop fail
+    for i = 1:4
+        alpha = x[i+1]-x[i]
+        dip = csi.b[i+1]
+        di = csi.b[i]+2*cs.c[i]*alpha+3*cs.d[i]*alpha^2
+        @test isapprox(di, dip, atol=1.e-12)
+        ddi = 2*csi.c[i+1]
+        ddip = 2*csi.c[i]+6*csi.d[i]*alpha
+        @test isapprox(ddi, ddip, atol=1.e-12)
+    end
+    # Second derivatives at end points
+    @test isapprox(csi.c[1], 0.0, atol = 1.e-12)
+    @test isapprox(2*csi.c[4]+6*csi.d[4], 0.0, atol = 1.e-12)
     end;
 end
 
@@ -257,11 +302,6 @@ function graphics_tests()
     title("Irregular Interpolation, 40 Points")
 end
 
-if unit_tests
-    do_tests()
-    graphics_tests()
-end
-
 struct Hermite
     x::Array{Float64, 1}
     y::Array{Float64,1}
@@ -271,6 +311,14 @@ end
 function Hermite(x::Array{Float64,1}, y::Array{Float64,1})
     d=zeros(length(x))
     # d[1] =
+end
+
+if unitTests
+    do_tests()
+end
+
+if graphicsTests
+    graphics_tests()
 end
 
 end # module Interp
