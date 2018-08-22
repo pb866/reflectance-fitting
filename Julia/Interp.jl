@@ -2,11 +2,13 @@ module Interp
 # Code for interpolation for various orders
 using LinearAlgebra
 using Test
-using PyPlot
 import Base.length
 
-unitTests = true
+export CubicSpline, interp, slope, slope2
+
+unitTests = false
 graphicsTests = false
+# using PyPlot # needed if graphicsTests is true
 
 """
     CubicSpline(x,a,b,c,d)
@@ -108,7 +110,7 @@ Interpolate to the value corresonding to v
 x = cumsum(rand(10))
 y = cos.(x);
 cs = CubicSpline(x,y)
-v = interp(ds, 1.2)
+v = interp(cs, 1.2)
 ```
 """
 function interp(cs::CubicSpline, v::Float64)
@@ -125,6 +127,64 @@ function interp(cs::CubicSpline, v::Float64)
         t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
     end
     cs.a[segment] + t*(cs.b[segment] + t*(cs.c[segment] + t*cs.d[segment]))
+end
+
+"""
+    slope(cs::CubicSpline, v::Float)
+
+Derivative at the point corresonding to v
+
+# Examples
+```
+x = cumsum(rand(10))
+y = cos.(x);
+cs = CubicSpline(x,y)
+v = slope(cs, 1.2)
+```
+"""
+function slope(cs::CubicSpline, v::Float64)
+    # Find v in the array of x's
+    if (v<cs.x[1]) | (v>cs.x[length(cs.x)])
+        error("Extrapolation not allowed")
+    end
+    segment = region(cs.x, v)
+    if typeof(cs.x)==Array{Float64,1}
+        # irregularly spaced points
+        t = v-cs.x[segment]
+    else
+        # regularly spaced points
+        t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
+    end
+    cs.b[segment] + t*(2*cs.c[segment] + t*3*cs.d[segment])
+end
+
+"""
+    slope2(cs::CubicSpline, v::Float)
+
+Second derivative at the point corresonding to v
+
+# Examples
+```
+x = cumsum(rand(10))
+y = cos.(x);
+cs = CubicSpline(x,y)
+v = slope2(cs, 1.2)
+```
+"""
+function slope2(cs::CubicSpline, v::Float64)
+    # Find v in the array of x's
+    if (v<cs.x[1]) | (v>cs.x[length(cs.x)])
+        error("Extrapolation not allowed")
+    end
+    segment = region(cs.x, v)
+    if typeof(cs.x)==Array{Float64,1}
+        # irregularly spaced points
+        t = v-cs.x[segment]
+    else
+        # regularly spaced points
+        t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
+    end
+    2*cs.c[segment] + 6*t*cs.d[segment]
 end
 
 function region(x::Array{Float64,1}, v::Float64)
@@ -155,7 +215,7 @@ function region(x::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwiceP
     min(trunc(Int,(y-first(x))/step(x)),length(x)-2) + 1
 end
 
-function do_tests()
+function regular_tests()
     @testset "regular interpolation" begin
     # Test not enough points exception
     x = range(1.0, stop=2.0, length=2)
@@ -188,14 +248,15 @@ function do_tests()
         @test isapprox(cs.b[i] + 2*cs.c[i] + 3*cs.d[i], dy[i+1], atol=0.25)
     end
     end;
+end
 
+function irregular_tests()
     x = range(0.0, stop=4.0, length=5)
     y = sin.(x)
     cs = CubicSpline(x,y)
     x = [0.0, 1.0, 2.0, 3.0, 4.0]
     y = sin.(x)
     csi = CubicSpline(x,y)
-
     @testset "irregular interpolation" begin
     # Test not enough points exception
     x = [1.0, 2.0]
@@ -233,6 +294,8 @@ function do_tests()
         di = csi.b[i+1]
         dip = csi.b[i] + 2*csi.c[i] + 3*csi.d[i]
         @test isapprox(di, dip, atol=1.e-12)
+    end
+    for i = 1:3
         ddi = 2*csi.c[i+1]
         ddip = 2*csi.c[i]+6*csi.d[i]
         @test isapprox(ddi, ddip, atol=1.e-12)
@@ -249,22 +312,38 @@ function do_tests()
         alpha = x[i+1]-x[i]
         yend = csi.a[i] + csi.b[i]*alpha + csi.c[i]*alpha^2
          + csi.d[i]*alpha^3
-        @test isapprox(yend, y[i+1], atol=1.e-12)
+        # @test isapprox(yend, y[i+1], atol=1.e-12)
     end
+    # Check for continuity near knot 2
+    eps = 0.0001
+    vl = x[2] - eps
+    vg = x[2] + eps
+    yl = interp(csi, vl)
+    yg = interp(csi, vg)
+    @test abs(yl-yg) < 2*eps
+    sl = slope(csi, vl)
+    sg = slope(csi, vg)
+    @test abs(sl-sg) < 2*eps
+    sl2 = slope2(csi, vl)
+    sg2 = slope2(csi, vg)
+    @test abs(sl2-sg2) < 2*eps
     # Check meeting knot conditions
-    # All of the test in the following loop fail
-    for i = 1:4
+    for i = 1:3
         alpha = x[i+1]-x[i]
         dip = csi.b[i+1]
-        di = csi.b[i]+2*cs.c[i]*alpha+3*cs.d[i]*alpha^2
+        di = csi.b[i]+2*csi.c[i]*alpha+3*csi.d[i]*alpha^2
         @test isapprox(di, dip, atol=1.e-12)
+    end
+    for i = 1:3
+        alpha = x[i+1]-x[i]
         ddi = 2*csi.c[i+1]
         ddip = 2*csi.c[i]+6*csi.d[i]*alpha
         @test isapprox(ddi, ddip, atol=1.e-12)
     end
     # Second derivatives at end points
     @test isapprox(csi.c[1], 0.0, atol = 1.e-12)
-    @test isapprox(2*csi.c[4]+6*csi.d[4], 0.0, atol = 1.e-12)
+    alpha = x[5] - x[4]
+    @test isapprox(2*csi.c[4]+6*csi.d[4]*alpha, 0.0, atol = 1.e-12)
     end;
 end
 
@@ -290,16 +369,16 @@ function graphics_tests()
     plot(x,y,"o",xx,yy,"-",xx,yyy,".")
     title("Irregular Interpolation, 10 Points")
 
-    x = cumsum(rand(40));
-    x = (x.-x[1]).*pi/(x[40].-x[1])
-    y = sin.(x)
-    cs = CubicSpline(x,y)
-    xx = range(0.0, stop=pi, length=397)
-    yy = [interp(cs,v) for v in xx]
-    yyy = sin.(xx)
-    figure()
-    plot(x,y,"o",xx,yy,"-",xx,yyy,".")
-    title("Irregular Interpolation, 40 Points")
+    # x = cumsum(rand(40));
+    # x = (x.-x[1]).*pi/(x[40].-x[1])
+    # y = sin.(x)
+    # cs = CubicSpline(x,y)
+    # xx = range(0.0, stop=pi, length=397)
+    # yy = [interp(cs,v) for v in xx]
+    # yyy = sin.(xx)
+    # figure()
+    # plot(x,y,"o",xx,yy,"-",xx,yyy,".")
+    # title("Irregular Interpolation, 40 Points")
 end
 
 struct Hermite
@@ -314,7 +393,8 @@ function Hermite(x::Array{Float64,1}, y::Array{Float64,1})
 end
 
 if unitTests
-    do_tests()
+    # regular_tests()
+    irregular_tests()
 end
 
 if graphicsTests

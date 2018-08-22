@@ -190,9 +190,8 @@ D_1\\D_2\\D_3\\ \vdots\\D_n\\D_{n+1}
 % just to be safe for later
 
 \subsection{Cubic Spline Results}
-My implementation of these results(which isn't necessarily bug free)
-shows excessive oscillation of the splines for irregularly spaced
-points. Figure~\ref{fig:regSpline} is my interolation of a spline
+\subsubsection{Checking Validity}
+Figure~\ref{fig:regSpline} is my interpolation of a spline
 curve for regularly spaced points using my spline routine.
 \begin{figure}
 \begin{center}
@@ -212,8 +211,7 @@ spaced points.
 spaced points for $\sin(x), x=0,\pi$. The large circles are the data,
 the dotted line the exact curve and the orange line the spline curve.}
 \end{figure}
-Note extra oscillations which occur in this case.
-Doing the same calculation in Matlab gives better results.
+Doing the same calculation in Matlab gives similar results.
 Figure~\ref{fig:matSpline} is the same calculation done in Matlab
 with irregularly spaced points.
 \begin{figure}
@@ -224,12 +222,57 @@ with irregularly spaced points.
 spline routine with irregularly spaced points.
 Compare to Figure~\ref{fig:irregSpline}.}
 \end{figure}
-I could have an unstable algorithm, an error in the implementation,
-or an error in the derivation. In any case, piece-wise hermite polynomial
-may be a better way to go. The following references are in the Matlab
-documentation of the pchip function\cite{Fritsch,Kahaner}.
+I also did a range of unit tests on the routine checking for
+satisfying the spline equations and for continuity of the function
+and its first two derivatives at the knots. All units tests were
+passed successfully.
+
+\subsubsection{Extra Oscillations}
+If there are jumps in the data making the curve look
+discontinuous, a spline can oscillate near the gap.
+Consider the data in Figure~\ref{fig:csbump}
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{csbump}
+\end{center}
+\caption{\label{fig:csbump}Cubic spline interpolation for
+data with a sudden bump.}
+\end{figure}
+as an example.
+In this case, a piece-wise hermite polynomial
+may be a better way to go. Matlab
+recommends the pchip function\cite{Fritsch,Kahaner} based
+on hermite polynomials to address this issue. The spline interpolation
+in Matlab is identical to the Julia one. Figure~\ref{fig:pchip}
+is what the pchip routine produces.
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{pchip}
+\end{center}
+\caption{\label{fig:pchip}Hermite polynomial interpolation
+for data with a sudden bump using pchip in MATLAB.}
+\end{figure}
 
 \section{Piece-wise Hermite Polynomials}
+This is probably not the most efficient implementation, but
+I will follow Fritsch's notation\cite{Fritsch}
+\begin{align}
+f(x) &= y_i H_1(x) + y_{i+1} H_2(x) + d_i H_3(x) + d_{i+1} H_4(x)\\
+y_i &= f(x_i)\\
+d_i &= f'(x_i)\\
+h_i &= x_{i+1}-x{i}\\
+H_1(x) &= \phi\left(\frac{x{i+1}-x}{h_i}\right)\\
+H_2(x) &= \phi\left(\frac{x-x_i}{h_i}\right)\\
+H_3(x) &= -h_i\psi\left(\frac{x_{i+1}-x}{h_i}\right)\\
+H_4(x) &= h_i\psi(\left(\frac{x-x_i}{h_i}\right)\\
+\phi(t) &= 3t^2-2t^3\\
+\psi(t) &= t^3-t^2
+\end{align}
+
+The prescription in Fritsch\cite{Fritsch} for producing cubic
+hermite interpolants requires the derivatives at the knots. It
+is not clear from the documentation which choice MATLAB
+made in the pchip routine.
 \subsection{Derivatives}
 The formulas in the previous section require the computation of
 numerical derivatives at each knot.
