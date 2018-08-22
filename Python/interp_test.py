@@ -40,8 +40,8 @@ class Index:
 # =============================================================================
 
 plt.close('all')
-ndx = Index('Al', lambda_min=10, lambda_max=1000)
-ndx2 = Index('Al2O3', lambda_min = 10, lambda_max = 1000)
+ndx = Index('Al', lambda_min=350, lambda_max=500)
+# ndx2 = Index('Al2O3', lambda_min = 10, lambda_max = 1000)
 # =============================================================================
 # npts=200
 # wl=np.linspace(10,1000,npts)
@@ -49,17 +49,25 @@ ndx2 = Index('Al2O3', lambda_min = 10, lambda_max = 1000)
 # ndx2=Al2O3Index.at(wl)
 # thetad=75
 # =============================================================================
-plt.figure()
-plt.semilogy(ndx.lam, ndx.n,'.',ndx2.lam,ndx2.n,'.')
-plt.legend(('Al','Al2O3'))
-plt.title('Index of Refraction')
-plt.xlabel('wavelength, nm')
-plt.ylabel('n')
-plt.show()
-plt.figure()
-plt.semilogy(ndx.lam,ndx.k,'.',ndx2.lam,ndx2.k,'.')
-plt.legend(('Al','Al2O3'))
-plt.title('Index of Refraction')
+# =============================================================================
+# plt.figure()
+# plt.semilogy(ndx.lam, ndx.n,'.',ndx2.lam,ndx2.n,'.')
+# plt.legend(('Al','Al2O3'))
+# plt.title('Index of Refraction')
+# plt.xlabel('wavelength, nm')
+# plt.ylabel('n')
+# plt.show()
+# plt.figure()
+# =============================================================================
+import scipy.interpolate as intr
+kintr = intr.PchipInterpolator(ndx.lam, ndx.k)
+xx = np.linspace(355,495,300);
+yy = kintr(xx);
+sintr = intr.interp1d(ndx.lam, ndx.k, kind='cubic')
+yyy = sintr(xx)
+plt.semilogy(ndx.lam,ndx.k,'.',xx,yy,'-',xx,yyy,'-')
+plt.title('Aluminum Index of Refraction')
+plt.legend(('data','PCHIP','spline'))
 plt.xlabel('wavelength, nm')
 plt.ylabel('k')
 plt.show()
