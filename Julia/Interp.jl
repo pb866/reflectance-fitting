@@ -4,12 +4,12 @@ using LinearAlgebra
 using Test
 import Base.length
 
-export CubicSpline, interp, slope, slope2, pchip
+export CubicSpline, interp, slope, slope2, pchip, pchip2, pchip3
 
 unitTests = false
 graphicsTests = false
-bumpTests = true
-using PyPlot # needed if graphicsTests is true
+bumpTests = false
+# using PyPlot # needed if graphicsTests is true
 
 """
     CubicSpline(x,a,b,c,d)
