@@ -4,9 +4,9 @@ using LinearAlgebra
 using Test
 import Base.length
 
-export CubicSpline, interp, slope, slope2
+export CubicSpline, interp, slope, slope2, pchip
 
-unitTests = false
+unitTests = true
 graphicsTests = false
 # using PyPlot # needed if graphicsTests is true
 
@@ -17,11 +17,30 @@ concrete type for holding the data needed
     to do a cubic spline interpolation
 """
 struct CubicSpline
-    x
+    x::Union{Array{Float64,1},
+        StepRangeLen{Float64,
+            Base.TwicePrecision{Float64},
+            Base.TwicePrecision{Float64}}}
     a::Array{Float64,1}
     b::Array{Float64,1}
     c::Array{Float64,1}
     d::Array{Float64,1}
+end
+
+"""
+    PSCHIP(x,a,b,c,d)
+
+concrete type for holding the data needed
+    to do a piecewise continuous hermite interpolation
+"""
+struct PCHIP
+    x::Union{Array{Float64,1},
+        StepRangeLen{Float64,
+            Base.TwicePrecision{Float64},
+            Base.TwicePrecision{Float64}}}
+    y::Array{Float64,1}
+    d::Array{Float64,1}
+    h::Array{Float64,1}
 end
 
 """
@@ -101,6 +120,32 @@ function CubicSpline(x::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.T
 end
 
 """
+    pchip(x,y)
+
+Creates the PCHIP structure needed for piecewise
+    continuous cubic spline interpolation
+
+# Arguments
+- `x`: an array of x values at which the function is known
+- `y`: an array of y values corresonding to these x values
+"""
+function pchip(x::Array{Float64,1}, y::Array{Float64,1})
+    len = size(x,1)
+    if len<3
+        error("PCHIP requires at least three points for interpolation")
+    end
+    h = x[2:len].-x[1:len-1]
+    # Pre-allocate and fill columns and diagonals
+    d = zeros(len)
+    d[1] = (y[2]-y[1])/h[1]
+    for i=2:len-1
+        d[i] = (y[i+1]/h[i]+y[i]*(1/h[i-1]-1/h[i])-y[i-1]/h[i-1])/2
+    end
+    d[len] = (y[len]-y[len-1])/h[len-1]
+    PCHIP(x,y,d,h)
+end
+
+"""
     interp(cs::CubicSpline, v::Float)
 
 Interpolate to the value corresonding to v
@@ -127,6 +172,20 @@ function interp(cs::CubicSpline, v::Float64)
         t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
     end
     cs.a[segment] + t*(cs.b[segment] + t*(cs.c[segment] + t*cs.d[segment]))
+end
+
+function interp(pc::PCHIP, v::Float64)
+    if (v<pc.x[1]) | (v>pc.x[length(pc.x)])
+        error("Extrapolation not allowed")
+    end
+    i = region(pc.x, v)
+    phi(t) = 3*t^2 - 2*t^3
+    psi(t) = t^3 - t^2
+    H1(x) = phi((pc.x[i+1]-v)/pc.h[i])
+    H2(x) = phi((v-pc.x[i])/pc.h[i])
+    H3(x) = -pc.h[i]*psi((pc.x[i+1]-v)/pc.h[i])
+    H4(x) = pc.h[i]*psi((v-pc.x[i])/pc.h[i])
+    pc.y[i]*H1(v) + pc.y[i+1]*H2(v) + pc.d[i]*H3(v) + pc.d[i+1]*H4(v)
 end
 
 """
@@ -156,6 +215,34 @@ function slope(cs::CubicSpline, v::Float64)
         t = (v-cs.x[segment])/(cs.x[segment+1]-cs.x[segment])
     end
     cs.b[segment] + t*(2*cs.c[segment] + t*3*cs.d[segment])
+end
+
+"""
+    slope(pc::PCHIP, v::Float)
+
+Derivative at the point corresonding to v
+
+# Examples
+```
+x = cumsum(rand(10))
+y = cos.(x);
+pc = pchip(x,y)
+v = slope(pc, 1.2)
+```
+"""
+function slope(pc::PCHIP, v::Float64)
+    # Find v in the array of x's
+    if (v<pc.x[1]) | (v>pc.x[length(pc.x)])
+        error("Extrapolation not allowed")
+    end
+    i = region(pc.x, v)
+    phip(t) = 6*t - 6*t^2
+    psip(t) = 3*t^2 - 2*t
+    H1p(x) = -phip((pc.x[i+1]-v)/pc.h[i])/pc.h[i]
+    H2p(x) = phip((v-pc.x[i])/pc.h[i])/pc.h[i]
+    H3p(x) = psip((pc.x[i+1]-v)/pc.h[i])
+    H4p(x) = psip((v-pc.x[i])/pc.h[i])
+    pc.y[i]*H1p(v) + pc.y[i+1]*H2p(v) + pc.d[i]*H3p(v) + pc.d[i+1]*H4p(v)
 end
 
 """
@@ -381,20 +468,33 @@ function graphics_tests()
     # title("Irregular Interpolation, 40 Points")
 end
 
-struct Hermite
-    x::Array{Float64, 1}
-    y::Array{Float64,1}
-    d::Array{Float64,1}
+function regular_pchip_tests()
+    @testset "Regular pchip" begin
+    end;
 end
 
-function Hermite(x::Array{Float64,1}, y::Array{Float64,1})
-    d=zeros(length(x))
-    # d[1] =
+function irregular_pchip_tests()
+    x=[1.0, 1.8, 2.5, 3.0, 3.9];
+    y=cos.(x);
+    pc=pchip(x,y)
+    @testset "Irregular pchip" begin
+    for i=1:5
+        # Continuity
+        @test interp(pc,x[i])==y[i]
+    end
+    for i = 2:4
+        # Continuity of slope
+        eps = 0.000001
+        @test isapprox(slope(pc,x[i]-eps),slope(pc,x[i]+eps),atol=4*eps)
+    end
+    end;
 end
 
 if unitTests
-    # regular_tests()
+    regular_tests()
     irregular_tests()
+    regular_pchip_tests()
+    irregular_pchip_tests()
 end
 
 if graphicsTests
