@@ -3,9 +3,9 @@
 \usepackage{graphicx}
 \usepackage{url}
 \title{Cubic Interpolation with Irregularly Spaced Points}
-\subtitle{Version 0.2}
+\subtitle{Version 1.0}
 \author{R. Steven Turley}
-\date{August 21, 2018}
+\date{August 23, 2018}
 \begin{document}
 \maketitle
 \tableofcontents
@@ -254,7 +254,6 @@ for data with a sudden bump using pchip in MATLAB.}
 \end{figure}
 
 \section{Piece-wise Hermite Polynomials}
-This is probably not the most efficient implementation, but
 I will follow Fritsch's notation\cite{Fritsch}
 \begin{align}
 f(x) &= y_i H_1(x) + y_{i+1} H_2(x) + d_i H_3(x) + d_{i+1} H_4(x)\\
@@ -268,11 +267,15 @@ H_4(x) &= h_i\psi(\left(\frac{x-x_i}{h_i}\right)\\
 \phi(t) &= 3t^2-2t^3\\
 \psi(t) &= t^3-t^2
 \end{align}
+If speed is important, the above nested formulas can undoubtedly
+be simplified to make he code more efficient.
 
 The prescription in Fritsch\cite{Fritsch} for producing cubic
 hermite interpolants requires the derivatives at the knots. It
-is not clear from the documentation which choice MATLAB
-made in the pchip routine.
+is not clear from the documentation which choice the current
+version of MATLAB makes in the pchip routine. However, I found
+looked through the MATLAB source code to see how this choice
+was made.
 \subsection{Derivatives}
 The formulas in the previous section require the computation of
 numerical derivatives at each knot.
@@ -300,12 +303,12 @@ If the points are not equally spaced, a somewhat less
 accurate formula can be found from the average of the forward
 and backward difference formulas.
 \begin{align}
-f'(x_i) &\approx \frac{f'_b(x_i)+f'_f(x_i)}{2}\\
+f'(x_i) &\approx \frac{f'_b(x_i)+f'_f(x_i)}{2} \label{eq:meanDer}\\
 &= \frac{y_i-y_{i-1}}{2h_b}+\frac{y_{i+1}-y_i)}{2h_f}\\
 &= \frac{y_{i+1}}{2h_f}+y_i\left(\frac{1}{2h_b}-\frac{1}{2h_f}\right)
 	-\frac{y_{i-1}}{2h_b} \label{eq:cuneq}\\
 &= \frac{y_{i+1}}{2h_f}+y_i\frac{h_f-h_b}{2h_f h_b}
-	-\frac{y_{i-1}}{2h_b}
+	-\frac{y_{i-1}}{2h_b}\label{eq:meanb}
 \end{align}
 where $h_f=y_{i+1}-y{i}$ and $h_b=y_i-y_{i-1}$.
 Substituting the Equation~\ref{eq:Taylor} for the terms
@@ -344,10 +347,73 @@ Substituting Equation~\ref{eq:yi} into Equation~\ref{eq:ym}
 and Equation~\ref{eq:yi}, solving the remaining equations for $c$
 and then equating them to solve for $b$ yields
 \begin{equation}
-b = f'(x_i) = \frac{(y_i-y{i-1})h_f}{h_b(h_f+h_b)}+
-	\frac{(y_{i+1}-y{i})h_b}{h_f(h_f+h_b)}.
+b = f'(x_i) = \frac{(y_i-y_{i-1})h_f}{h_b(h_f+h_b)}+
+	\frac{(y_{i+1}-y_i)h_b}{h_f(h_f+h_b)}.\label{eq:quadb}
 \end{equation}
+Figure~\ref{fig:hermiteBump} compares the cubic Hermite interpolations
+using Equation~\ref{eq:meanb} and Equation~\ref{eq:quadb} to the
+cubic spline interpolation.
+\begin{figure}
+\begin{center}
+\includegraphics[width=10cm]{hermiteBump}
+\end{center}
+\caption{\label{fig:hermiteBump}Comparison of spline and hermite
+polynomial interpolations for data with a discontinuity. The circles are
+the original data points. The curve labeled ``mean''
+uses Equation~\ref{eq:meanb}
+for the derivatives in the hermite interpolation. The curve labeled
+``quad'' uses Equation~\ref{eq:quadb} for the slopes.}
+\end{figure}
+Note that both choices of slopes still result in overshooting on the
+interpolation curve, but not as sever as with the spline. The slope
+computed using Equation~\ref{eq:meanb} has less overshoot than the
+one computed using Equation~\ref{eq:quadb}.
+\subsection{Piece-wise Monotonic Curves}
+Fritsch\cite{Fritsch,Wiki} describe a way to make the piece-wise
+cubic curve locally monotonic. This should be the same as the pchip
+method illustrated in Figure~\ref{fig:pchip}.
 
+The first step is to compute the linear slopes between the data
+points.
+\begin{align}
+\Delta_i &= \frac{y_{i+1}-y_i}{h_i}\\
+h_i &= x_{i+1}-x_i
+\end{align}
+The slopes at the data points are initially chosen to be the average
+of the linear slopes (as in Equation~\ref{eq:meanDer}).
+\begin{align}
+d_i &= \frac{\Delta_{i-1}+\Delta_i}{2}\qquad\mbox{for } i=2,\ldots,n-1\\
+d_1 &= \Delta_1\\
+d_n &= \Delta_n
+\end{align}
+If $\Delta_i$ and $\Delta_{i-1}$ have opposite signs, then $d_i=0$.
+For $i=1,\ldots,n-1$, if $\Delta_i=0$
+\begin{equation}
+d_i = d_{i+1}=0
+\end{equation}
+In this case, the following steps are ignored.
+The next step is to define the variables
+\begin{align}
+\alpha_i &= \frac{d_i}{\Delta_i}\\
+\beta_i &= \frac{d_{i+1}}{\Delta i}
+\end{align}
+The vector $(\alpha_i,\beta_i)$ must have a radius less than 3.
+Therefore, if $\alpha_i^2+\beta_i^2>9$,
+\begin{align}
+\tau_i &= \frac{3}{\sqrt{\alpha_i^2+\beta_i^2}}\\
+d_i &= \tau_i \alpha_i \Delta_i\\
+d_{i+1} &= \tau_i \beta_i \Delta_i
+\end{align}
+Figure~\ref{fig:pchipBump} is the interpolation using this algorithm
+for the slopes.
+\begin{figure}
+\begin{center}
+\includegraphics[width=11cm]{pchipBump}
+\end{center}
+\caption{\label{fig:pchipBump}PCHIP interpolation using my
+Julia routine. Compare to the MATLAB calculation in
+Figure~\ref{fig:pchip}.}
+\end{figure}
 \appendix
 \section{Spline Solution for Regularly-Spaced Points}\label{sec:reg-deriv}
 The goal is to solve Equations~\ref{eq:Yi0} through \ref{eq:Ypi1}
@@ -457,6 +523,11 @@ Fritsch, F. N. and R. E. Carlson. "Monotone Piecewise Cubic Interpolation." SIAM
 
 \bibitem{Kahaner}
 Kahaner, David, Cleve Moler, Stephen Nash. Numerical Methods and Software. Upper Saddle River, NJ: Prentice Hall, 1988.
+
+\bibitem{Wiki}
+Wikipedia, "Monotonic cubic interpolation,"
+\url{https://en.wikipedia.org/wiki/Monotone\_cubic\_interpolation}
+(accessed 23 Aug 2018).
 
 \end{thebibliography}
 

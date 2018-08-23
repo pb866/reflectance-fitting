@@ -6,9 +6,10 @@ import Base.length
 
 export CubicSpline, interp, slope, slope2, pchip
 
-unitTests = true
+unitTests = false
 graphicsTests = false
-# using PyPlot # needed if graphicsTests is true
+bumpTests = true
+using PyPlot # needed if graphicsTests is true
 
 """
     CubicSpline(x,a,b,c,d)
@@ -142,6 +143,58 @@ function pchip(x::Array{Float64,1}, y::Array{Float64,1})
         d[i] = (y[i+1]/h[i]+y[i]*(1/h[i-1]-1/h[i])-y[i-1]/h[i-1])/2
     end
     d[len] = (y[len]-y[len-1])/h[len-1]
+    PCHIP(x,y,d,h)
+end
+
+function pchip2(x::Array{Float64,1}, y::Array{Float64,1})
+    len = size(x,1)
+    if len<3
+        error("PCHIP requires at least three points for interpolation")
+    end
+    h = x[2:len].-x[1:len-1]
+    # Pre-allocate and fill columns and diagonals
+    d = zeros(len)
+    d[1] = (y[2]-y[1])/h[1]
+    for i=2:len-1
+        d[i] = (y[i]-y[i-1])*h[i]/(h[i-1]*(h[i-1]+h[i])) +
+            (y[i+1]-y[i])*h[i-1]/(h[i]*(h[i-1]+h[i]))
+    end
+    d[len] = (y[len]-y[len-1])/h[len-1]
+    PCHIP(x,y,d,h)
+end
+
+function pchip3(x::Array{Float64,1}, y::Array{Float64,1})
+    len = size(x,1)
+    if len<3
+        error("PCHIP requires at least three points for interpolation")
+    end
+    h = x[2:len].-x[1:len-1]
+    del = (y[2:len].-y[1:len-1])./h
+    # Pre-allocate and fill columns and diagonals
+    d = zeros(len)
+    d[1] = del[1]
+    for i=2:len-1
+        if del[i]*del[i-1] < 0
+            d[i] = 0
+        else
+            d[i] = (del[i]+del[i-1])/2
+        end
+    end
+    d[len] = del[len-1]
+    for i=1:len-1
+        if del[i] == 0
+            d[i] = 0
+            d[i+1] = 0
+        else
+            alpha = d[i]/del[i]
+            beta = d[i+1]/del[i]
+            if alpha^2+beta^2 > 9
+                tau = 3/sqrt(alpha^2+beta^2)
+                d[i] = tau*alpha*del[i]
+                d[i+1] = tau*beta*del[i]
+            end
+        end
+    end
     PCHIP(x,y,d,h)
 end
 
@@ -455,17 +508,28 @@ function graphics_tests()
     figure()
     plot(x,y,"o",xx,yy,"-",xx,yyy,".")
     title("Irregular Interpolation, 10 Points")
+end
 
-    # x = cumsum(rand(40));
-    # x = (x.-x[1]).*pi/(x[40].-x[1])
-    # y = sin.(x)
-    # cs = CubicSpline(x,y)
-    # xx = range(0.0, stop=pi, length=397)
-    # yy = [interp(cs,v) for v in xx]
-    # yyy = sin.(xx)
-    # figure()
-    # plot(x,y,"o",xx,yy,"-",xx,yyy,".")
-    # title("Irregular Interpolation, 40 Points")
+function bump_tests()
+    x = [0.0, 0.1, 0.2, 0.3, 0.35, 0.55, 0.65, 0.75];
+    y = [0.0, 0.01, 0.02, 0.03, 0.5, 0.51, 0.52, 0.53];
+    xx = range(0.0,stop=0.75,length=400);
+    sp = CubicSpline(x,y);
+    yy = [interp(sp, v) for v in xx]
+    pc = pchip(x,y)
+    yyy = [interp(pc,v) for v in xx]
+    pc2 = pchip2(x,y)
+    yyy2 = [interp(pc2,v) for v in xx]
+    figure()
+    plot(x,y,"o",xx,yy,"-",xx,yyy,"-",xx,yyy2,"-")
+    title("Cubic Interpolation")
+    legend(("data", "spline", "mean","quad"))
+    pc3 = pchip3(x,y)
+    yyy3 = [interp(pc3,v) for v in xx]
+    figure()
+    plot(x, y, "o", xx, yyy3, "-")
+    title("PCHIP Interpolation")
+    legend(("data", "PCHIP"))
 end
 
 function regular_pchip_tests()
@@ -499,6 +563,10 @@ end
 
 if graphicsTests
     graphics_tests()
+end
+
+if bumpTests
+    bump_tests()
 end
 
 end # module Interp
