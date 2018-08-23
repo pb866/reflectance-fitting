@@ -40,26 +40,22 @@ class Index:
 # =============================================================================
 
 plt.close('all')
-ndx = Index('Al', lambda_min=350, lambda_max=500)
-# ndx2 = Index('Al2O3', lambda_min = 10, lambda_max = 1000)
-# =============================================================================
-# npts=200
-# wl=np.linspace(10,1000,npts)
-# ndx=AlIndex.at(wl)
-# ndx2=Al2O3Index.at(wl)
-# thetad=75
-# =============================================================================
-# =============================================================================
-# plt.figure()
-# plt.semilogy(ndx.lam, ndx.n,'.',ndx2.lam,ndx2.n,'.')
-# plt.legend(('Al','Al2O3'))
-# plt.title('Index of Refraction')
-# plt.xlabel('wavelength, nm')
-# plt.ylabel('n')
-# plt.show()
-# plt.figure()
-# =============================================================================
 import scipy.interpolate as intr
+ndx = Index('Al', lambda_min=350, lambda_max=500)
+ndx2 = Index('Al2O3', lambda_min = 350, lambda_max = 500)
+kintr = intr.PchipInterpolator(ndx2.lam, ndx2.n)
+xx = np.linspace(ndx2.lam[1],ndx2.lam[-1], 300);
+yy = kintr(xx);
+sintr = intr.interp1d(ndx2.lam, ndx2.n, kind='cubic')
+yyy = sintr(xx)
+plt.figure()
+plt.plot(ndx2.lam,ndx2.n,'.', xx, yy, '-', xx, yyy, '-')
+plt.title('Al$_2$O$_3$ Index of Refraction')
+plt.legend(('data','spline','PCHIP'))
+plt.xlabel('wavelength, $\\AA$')
+plt.ylabel('n')
+plt.show()
+plt.figure()
 kintr = intr.PchipInterpolator(ndx.lam, ndx.k)
 xx = np.linspace(355,495,300);
 yy = kintr(xx);
@@ -68,6 +64,6 @@ yyy = sintr(xx)
 plt.semilogy(ndx.lam,ndx.k,'.',xx,yy,'-',xx,yyy,'-')
 plt.title('Aluminum Index of Refraction')
 plt.legend(('data','PCHIP','spline'))
-plt.xlabel('wavelength, nm')
+plt.xlabel('wavelength, $\\AA$')
 plt.ylabel('k')
 plt.show()
