@@ -77,9 +77,9 @@ if dotests
 	@testset "Index Interpolation" begin
 		@test isapprox(interp(ndx.n, 409.8),0.895,atol=0.001)
 		@test isapprox(interp(ndx.k, 550.0),2.1e-2,atol=1.e-3)
-		nval = ndx[409.8]
+		nval = ndx[40.98]
 		n = real(nval)
-		nval = ndx[550.0]
+		nval = ndx[55.00]
 		k = imag(nval)
 		@test isapprox(n, 0.895, atol=0.001)
 		@test isapprox(k, 2.1e-2, atol=1.e-3)
