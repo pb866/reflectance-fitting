@@ -1,7 +1,7 @@
 using Interp
 using Test
 
-dotests = true
+dotests = false
 
 """
     Index(n,k)
