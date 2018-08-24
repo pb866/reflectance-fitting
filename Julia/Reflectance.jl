@@ -1,4 +1,4 @@
-using Interpolations
+using Interp
 using PyPlot
 
 """
@@ -28,8 +28,8 @@ function Reflectance(irun::Run, i0run::Run, darkrun::Run,
   theta = irun.x
   i0wavelength = i0run.x
   i0data = i0run.det
-  i0_interp = LinearInterpolation(i0wavelength, i0data)
-  i0 = i0_interp(lambda)
+  i0_interp = pchip(i0wavelength, i0data)
+  i0 = i0_interp[lambda]
   mean(run::Run) = sum(run.det)/length(run.det)
   dark = mean(darkrun)
   dark0 = mean(dark0run)
