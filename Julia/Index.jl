@@ -5,7 +5,7 @@ dotests = false
 
 """
     Index(n,k)
-	
+
 n and k are interpolation objects initialized to index data
 The interpolation assumes the wavelength is in Angstroms
 """
@@ -16,7 +16,7 @@ end
 
 """
     Index(material::String)
-	
+
 Initialize an Index type from data data in an index file.
 """
 function Index(name::String)
@@ -54,20 +54,23 @@ end
 
 """
     getindex(ndx::Index, wl::Float64)
-	
-Returns a complex index of refraction at wavelength wl.
+
+Returns a complex index of refraction at wavelength wl nm.
 
 * Example
 ndx = Index("Al")
 n = ndx[431.4]
-	
-n will have the value of the index of refraction of Al at 431.4 Angstroms 
+
+n will have the value of the index of refraction of Al at 431.4 Angstroms
 """
 function Base.getindex(ndx::Index, wl::Float64)
-	n = interp(ndx.n, wl)
-	k = interp(ndx.k, wl)
+    # data has index in Angstroms, convert wl to Angstroms before interp
+	n = interp(ndx.n, wl*10.0)
+	k = interp(ndx.k, wl*10.0)
 	n+k*1im
 end
+
+Base.getindex(ndx::Index, wl::Int64) = getindex(ndx, convert(Float64,wl))
 
 if dotests
 	ndx = Index("Al")

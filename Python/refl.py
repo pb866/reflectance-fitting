@@ -93,7 +93,7 @@ def matR(n, t, thetad, lam, sigma=0):
     t=percentS*np.abs(ts)**2+(1-percentS)*np.abs(tp)**2
     return (r,t)
 
-def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
+def Parratt(n, x, thetad, lam, fractions=0, sigma=0.0):
     """Reflectance from a multilayer mirror
     
     Parameters
@@ -142,7 +142,7 @@ def Parratt(n, x, thetad, lam, fractions=0, sigma=0):
     rp = 0
     
     qz = k*np.sin(thetad*np.pi/180) # for Debye-Waller correction
-    if len(sigma)==1 and sigma == 0:
+    if sigma == 0:
         sigma = np.zeros(n.size-1)
     eta = np.exp(-2*qz**2*sigma**2) # Debye-Waller roughness correction
     
