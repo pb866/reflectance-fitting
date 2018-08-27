@@ -3,6 +3,7 @@ module Interp
 using LinearAlgebra
 using Test
 import Base.length
+# import Base.getindex
 
 export CubicSpline, interp, slope, slope2, pchip, pchip2, pchip3
 
