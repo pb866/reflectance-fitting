@@ -1,0 +1,221 @@
+\documentclass{scrartcl}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{listings}
+\renewcommand{\lstlistingname}{Listing}
+\title{Linear Least Squares}
+\subtitle{Version 1.0}
+\author{R. Steven Turley}
+\date{August 31, 2018}
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+This article describes how to find the best fit to a function
+of the form
+\begin{equation}
+f(x;\vec{b})=\sum_{k=1}^{p} b_k g_k(x)\label{eq:lin}
+\end{equation}
+to a set of data points $(x_i,y_i)$.
+It is linear in the sense that $f$ is linear in the parameters
+$b_k$. It is called "least squares" because by "best fit" I
+mean the function which finds the set
+of parameters $b_k$ which minimizes $\chi^2$, the sum of the squares of
+the differences between $f(x_i;\vec{b})$ and $y_i$.
+\begin{equation}
+\chi^2 = \sum_{i=1}^n [f(x_i;\vec{b})-y_i)]^2\label{eq:uwchi}
+\end{equation}
+If the data is heteroscedactic (i.e. if the extent of the deviations
+of $y_i$ from $f(x_i,\vec{b})$ varies across the range of $x_i$, 
+the appropriate function to minimize is a weighted sum of the squares.
+This can be written in terms of the weights $w_i$ or in terms of the
+relative uncertainties at each data point $\sigma_i$.
+\begin{align}
+\chi^2 &= \sum_i w_i[f(x_i;\vec{b})-y_i)]^2\label{eq:wchi}\\
+\chi^2 &= \sum_i \left[\frac{f(x_i;\vec{b})-y_i)}{\sigma_i}\right]^2
+	\label{eq:schi}\\
+w_i &= \sigma_i^{-2}\label{eq:ws}
+\end{align}
+
+A good, but somewhat dated reference for the derivations here
+is the current version of Bevington\cite{Bevington},
+the book I first learned statics from. Some other helpful references
+which helped me with these derivations are the article
+in Wikipedia\cite{Wikipedia} and the article in
+MathWorld\cite{MathWorld}.
+
+A special case of linear least squares fitting in polynomial fitting
+which will be considered separately in another article\cite{polyfit}.
+
+\section{Finding Parameters}
+The function $\chi^2$ can be minimized by finding the point
+where it's gradient is zero.
+%\begin{equation}
+%\nabla_\vec{b} \chi^2
+%\end{equation}
+This is true if all of the partial derivatives\footnote{A
+partial derivative $\partial/b_i$ is the derivative with respect
+to $b_i$ holding all other quantities constant.}
+of $\chi^2$ with
+respect to the parameters $b_i$ are equal to zero. In the case 
+of unweighted least squares in Eq.~\ref{eq:uwchi}
+\begin{align}
+\frac{\partial \chi^2}{\partial b_j} &= \frac{\partial}{\partial b_j}
+\sum_i [f(x_i;\vec{b})-y_i)]^2\\
+	&= 2\sum_i [f(x_i;\vec{b})-y_i)]
+		\left(\frac{\partial f(x_i;\vec{b})}{\partial b_j}\right).
+		\label{eq:lpart}\\
+	&= 0
+\end{align}
+The partial derivative is simple when $f$ has the linear form
+in Eq.~\ref{eq:lin}.
+\begin{equation}
+\partial{f(x;\vec{b})}{\partial b_j} = g_j(x)\label{eq:linpart}
+\end{equation}
+Substituting Eq.~\ref{eq:lin} and Eq.~\ref{eq:linpart} into
+Eq.~\ref{eq:lpart},
+\begin{align}
+0 &= \sum_i [f(x_i;\vec{b})-y_i)]g_j(x_i)\\
+	&= \sum_i \left[\sum_k b_k g_k(x_i)-y_i\right]g_j(x_i)\\
+	\sum_{i,k} g_k(x_i)g_j(x_i)b_k.&= \sum_i g_j(x_i)y_i.\label{eq:linsolve}
+\end{align}
+If there are $p$ parameters $b_k$, Eq.~\ref{eq:linsolve} represents
+$p$ linear equations with $p$ unknowns which can be written in
+matrix form.
+\begin{equation}
+\left(\begin{array}{ccc}
+\sum_i g_1(x_i)^2&\cdots&\sum_i g_1(x_i)g_p(x_i)\\
+\vdots&\vdots&\vdots\\
+\sum_i g_n(x_i)g_1(x_i)&\cdots&\sum_i g_n(x_i)g_p(x_i)
+\end{array}\right)
+\left(\begin{array}{c}
+b_1\\
+\vdots\\
+b_p
+\end{array}\right) =
+\left(\begin{array}{c}
+\sum_i g_1(x_i)y_i\\
+\vdots\\
+\sum_i g_p(x_i)y_i
+\end{array}\right)\label{eq:uwmat}
+\end{equation}
+Eq.~\ref{eq:uwmat} can be solved for the parameters $b_k$
+using standard matrix techniques.
+
+The weighted fits in Eq.~\ref{eq:wchi} can similar be solved.
+\begin{equation}
+\left(\begin{array}{ccc}
+\sum_i w_i g_1(x_i)^2&\cdots&\sum_i w_i g_1(x_i)g_p(x_i)\\
+\vdots&\vdots&\vdots\\
+\sum_i w_i g_n(x_i)g_1(x_i)&\cdots&\sum_i w_i g_n(x_i)g_p(x_i)
+\end{array}\right)
+\left(\begin{array}{c}
+b_1\\
+\vdots\\
+b_p
+\end{array}\right) =
+\left(\begin{array}{c}
+\sum_i w_i g_1(x_i)y_i\\
+\vdots\\
+\sum_i w_i g_p(x_i)y_i
+\end{array}\right)\label{eq:wmat}
+\end{equation}
+Substituting Eq.~\ref{eq:ws} into Eq.~\ref{eq:wmat}
+gives the equation for weighted linear least squares
+in terms of the uncertainties $\sigma_i$.
+\begin{multline}
+\left(\begin{array}{ccc}
+\sum_i g_1(x_i)^2/\sigma_i^2&\cdots&\sum_i g_1(x_i)g_p(x_i)/\sigma_i^2\\
+\vdots&\vdots&\vdots\\
+\sum_i g_n(x_i)g_1(x_i)/\sigma_i^2&\cdots&\sum_i g_n(x_i)g_p(x_i)/\sigma_i^2
+\end{array}\right)
+\left(\begin{array}{c}
+b_1\\
+\vdots\\
+b_p
+\end{array}\right) =\\
+\left(\begin{array}{c}
+\sum_i g_1(x_i)y_i/\sigma_i^2\\
+\vdots\\
+\sum_i g_p(x_i)y_i/\sigma_i^2
+\end{array}\right)\label{eq:smat}
+\end{multline}
+If the $g_k$ are monomials with $g_k(x_i)=x_i^{k-1}$, then
+Eq.~\ref{eq:uwmat} takes on a particularly simple form.
+\begin{equation}
+\left(\begin{array}{ccc}
+n&\cdots&\sum_i x_i^{p-1}\\
+\vdots&\vdots&\vdots\\
+\sum_i x_i^{n-1}&\cdots&\sum_i x_i^{n+p-2}
+\end{array}\right)
+\left(\begin{array}{c}
+b_1\\
+\vdots\\
+b_p
+\end{array}\right) =
+\left(\begin{array}{c}
+\sum_i y_i\\
+\vdots\\
+\sum_i x_i^{p-1}y_i
+\end{array}\right)
+\end{equation}
+Fitting polynomials is discussed further in my polynomial fitting
+article\cite{polyfit}.
+
+\section{Residuals}
+A measure of the quality of the fit are the residuals $r_i$, which
+are the differences between the data points $y_i$ and the
+fit function $f$.
+\begin{equation}
+r_i = y_i - f(x_i;\vec{b})
+\end{equation}
+It is always a good idea to plot the residual when you're fitting
+to make sure it looks reasonable. Two common problems which
+are easy to spot graphically are an inaccurate or incomplete
+set of functions $g_k$ and incorrect weights $w_i$.
+
+\section{Parameter Uncertainties}
+As shown in my general uncertainties article\cite{uncertainties},
+
+\appendix
+
+\section{Computer Codes}
+
+\subsection{Excel}
+\subsection{MATLAB}
+\subsection{Mathematica}
+\subsection{Python}
+
+\subsection{Julia}
+\subsubsection{LsqFit.jl}
+
+
+\begin{thebibliography}{9}
+
+\bibitem{Bevington}
+Philip R.~Bevington, D.~Keith Robinson, 
+"Data Reduction and Error Analysis for the Physical Sciences,"
+Third Edition, McGraw Hill, 2003.
+
+\bibitem{Wikipedia}
+Wikipedia, "Monotonic least squares,"
+\url{https://en.wikipedia.org/wiki/Linear_least_squares}
+(accessed 31 Aug 2018).
+
+\bibitem{MathWorld}
+Eric W.~ Weisstein, "Least Squares Fitting," From MathWorld--A Wolfram
+Web Resource.
+\url{http://mathworld.wolfram.com/LeastSquaresFitting.html}
+(accessed 31 Aug 2018).
+
+\bibitem{polyfit}
+R.~Steven Turley, "Polynomial Fitting," BYU, 2018.
+
+\bibitem{uncertainties}
+R.~Steven Turley, "Fitting Parameter Uncertainties," BYU, 2018.
+
+\end{thebibliography}
+
+\end{document}

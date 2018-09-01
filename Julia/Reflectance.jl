@@ -1,6 +1,7 @@
 using Interp
-using PyPlot
+import PyPlot
 import Base.length
+using LaTeXStrings
 
 """
 Compound type with three fields:
@@ -38,22 +39,22 @@ function Reflectance(irun::Run, i0run::Run, darkrun::Run,
   Reflectance(theta, refl, lambda)
 end
 
-function plot(refl::Reflectance)
-    figure()
-    semilogy(refl.theta, refl.refl,"o")
+function rplot(refl::Reflectance)
+    PyPlot.figure()
+    PyPlot.semilogy(refl.theta, refl.refl,"o")
     wl = round(refl.wavelength, digits=2)
-    title("AlF\$_3\$ Reflectance at $wl nm")
-    xlabel("angle, degrees")
-    ylabel("reflectance")
+    PyPlot.title("AlF\$_3\$ Reflectance at $wl nm")
+    PyPlot.xlabel(L"$\theta$, degrees")
+    PyPlot.ylabel("reflectance")
 end
 
 function plot2(refl::Reflectance, reflb::Reflectance)
-    figure()
-    semilogy(refl.theta, refl.refl,"ro", reflb.theta, reflb.refl, "go")
+    PyPlot.figure()
+    PyPlot.semilogy(refl.theta, refl.refl,"ro", reflb.theta, reflb.refl, "go")
     wl = round(refl.wavelength, digits=2)
-    title("AlF\$_3\$ Reflectance at $wl nm")
-    xlabel("angle, degrees")
-    ylabel("reflectance")
+    PyPlot.title("AlF\$_3\$ Reflectance at $wl nm")
+    PyPlot.xlabel("angle, degrees")
+    PyPlot.ylabel("reflectance")
 end
 
 """

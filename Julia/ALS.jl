@@ -2,8 +2,8 @@ module ALS
 
 import Base.length
 import PyPlot.plot
-export LogFile, Index, Reflectance, Run, filename, gain, x, y, z, comment, runs
-export wavelength, plot, sub, plot2
+export LogFile, Index, Reflectance, Run, filename, comment, runs
+export wavelength, rplot, sub, plot2, parratt, gain
 
 dataDir = "X:/ALSData/2016/July2016 ALS data"
 

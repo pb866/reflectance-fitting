@@ -46,7 +46,7 @@ p = parratt(n, t, thetad, lam)
 """
 function parratt(n::Array{Complex{Float64},1},
     x::Array{Float64,1},
-    thetad::Float64, lam::Float64, fractions::Float64=0.0,
+    thetad::Float64, lam::Float64; fractions::Float64=0.0,
     sigma::Union{Array{Float64,1},Float64}=0.0)
     if fractions==0
         fractions = fracs(lam)
@@ -71,7 +71,7 @@ function parratt(n::Array{Complex{Float64},1},
         rs = C[m-1]*(fs*eta[m-1]+rs*eta[m-1]^2)/(1.0+fs*rs*eta[m-1])
         rp = C[m-1]*(fp*eta[m-1]+rp*eta[m-1]^2)/(1.0+fp*rp*eta[m-1])
     end
-    return fractionp*abs(rp)^2+fractions*abs(rs)^2
+    fractionp*abs2(rp)+fractions*abs2(rs)
 
 end
 
