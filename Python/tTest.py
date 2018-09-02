@@ -19,17 +19,19 @@ y=noise+m*x+b
 
 p, cov = np.polyfit(x,y,1,full=False, cov=True)
 pfit = np.poly1d(p)
-xp = np.linspace(1,5,100)
-# plt.plot(x,y,'.',xp,pfit(xp),'-')
+yfit = pfit(x)
+res = y-yfit
+mse = sum(res*res)/3
+sigma = np.sqrt(mse)
+print("fit standard deviation in y = {:.4f}".format(sigma))
 std = np.sqrt(np.diag(cov))
 print("slope     = {:8.5f} +/- {:.5f}".format(p[0],std[0]))
 print("intercept = {:8.5f} +/- {:.5f}".format(p[1],std[1]))
+print("adjusted slope error is {:.4f}".format(std[0]/sigma))
+print("adjusted intercept error iss {:.4f}".format(std[1]/sigma))
 
 # Try something else
-p, S, mu = np.polyfit(x, y, 1)
-y, delta = np.polyval(p, x, S, mu)
-print("y=",y)
-print("delta=",delta)
+p, cov = np.polyfit(x, y, 1, cov=True)
 
 # Test these variances, they disagree with everyone else
 sump = np.zeros(2)
@@ -37,7 +39,7 @@ sumsq = np.zeros(2)
 sumstd = np.zeros(2)
 trials=100
 for i in range(100):
-    noise = np.random.normal(scale=0.5,size=5)
+    noise = np.random.normal(size=5)
     y = noise + m*x + b
     p, cov = np.polyfit(x,y,1,full=False, cov=True)
     sump += p

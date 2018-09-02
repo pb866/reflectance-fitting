@@ -4,6 +4,8 @@
 Steve Turley's implementation of the LsqFit Julia library module.
 Defines and exports the following functions:
 * curve_fit
+* linear_fit
+* poly_fit
 * standard_error
 
 ```curve_fit``` returns its results in a ```CurveFitResult``` structure.
@@ -41,8 +43,7 @@ end
     curve_fit(model, xpts, ypts, wt, p0)
 
 # Parameters
-* model: function with two arguments, x (array of independent data) and p (parameters to be fit). Should return a vector with the function value
-at the x points.
+* model: function with two arguments, x (array of independent data) and p (parameters to be fit). Should return a vector with the function value at the x points.
 * xpts: independent variable for the data
 * ypts: dependent variable with the data
 * wt: array of weights for the fit. Function fit is sum(abs2, wt.*(model(x,p)-ypts))
@@ -68,6 +69,14 @@ function curve_fit(model::Function, xpts::AbstractArray, ypts::AbstractArray, wt
     CurveFitResult(dof, p, res, jac, conv, wt, mse)
 end
 
+"""
+    linear_fit(model, xpts, ypts)
+
+# Parameters
+* basis: array of basis function to use in the fit. They should be functions of a vector of points x which return a vector of points y
+* xpts: independent variable for the data
+* ypts: dependent variable with the data
+"""
 function linear_fit(basis::AbstractArray, xpts::AbstractArray,
         ypts::AbstractArray)
     order=length(basis)
@@ -84,7 +93,7 @@ function linear_fit(basis::AbstractArray, xpts::AbstractArray,
     dof = npts-order
     yf = zeros(npts)
     for i=1:order
-        yf += b[i].*basis[i](xpts)
+        yf .+= b[i].*basis[i](xpts)
     end
     res = yf .- ypts
     jac=Matrix{Union{Missing, Float64}}(missing,order,npts)
@@ -97,6 +106,15 @@ function linear_fit(basis::AbstractArray, xpts::AbstractArray,
     CurveFitResult(dof, b, res, jac', conv, wt, mse)
 end
 
+"""
+    poly_fit(order, xpts, ypts)
+
+Fit a polynomial to the data in xpts and ypts.
+# Parameters
+* order: highest order monomial to use in the fit
+* xpts: independent variable for the data
+* ypts: dependent variable with the data
+"""
 function poly_fit(order::Int, xpts::AbstractArray, ypts::AbstractArray)
     lf = [x->x.^i for i=0:order]
     linear_fit(lf, xpts, ypts)
