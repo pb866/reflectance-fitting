@@ -7,10 +7,13 @@ import Base.length
 
 export CubicSpline, interp, slope, slope2, pchip, pchip2, pchip3
 
-unitTests = false
-graphicsTests = false
-bumpTests = false
-# using PyPlot # needed if graphicsTests is true
+const unitTests = false
+const graphicsTests = false
+const bumpTests = false
+if graphicsTests | bumpTests
+    import PyPlot # needed if graphicsTests is true
+    const plt = PyPlot
+end
 
 """
     CubicSpline(x,a,b,c,d)
@@ -121,6 +124,8 @@ function CubicSpline(x::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.T
     CubicSpline(x,a,b,c,d)
 end
 
+# This version of pchip uses the mean value of the slopes
+# between data points on either side of the interpolation point
 """
     pchip(x,y)
 
@@ -147,6 +152,7 @@ function pchip(x::Array{Float64,1}, y::Array{Float64,1})
     PCHIP(x,y,d,h)
 end
 
+# PCHIP with quadratic fit to determine slopes
 function pchip2(x::Array{Float64,1}, y::Array{Float64,1})
     len = size(x,1)
     if len<3
@@ -164,6 +170,7 @@ function pchip2(x::Array{Float64,1}, y::Array{Float64,1})
     PCHIP(x,y,d,h)
 end
 
+# Real PCHIP
 function pchip3(x::Array{Float64,1}, y::Array{Float64,1})
     len = size(x,1)
     if len<3
@@ -495,9 +502,9 @@ function graphics_tests()
     xx = range(0.0, stop=pi, length=97)
     yy = [interp(cs,v) for v in xx]
     yyy = sin.(xx)
-    figure()
-    plot(x,y,"o",xx,yy,"-",xx,yyy,".")
-    title("Regular Interpolation")
+    plt.figure()
+    plt.plot(x,y,"o",xx,yy,"-",xx,yyy,".")
+    plt.title("Regular Interpolation")
 
     x = cumsum(rand(10));
     x = (x.-x[1]).*pi/(x[10].-x[1])
@@ -506,9 +513,9 @@ function graphics_tests()
     xx = range(0.0, stop=pi, length=97)
     yy = [interp(cs,v) for v in xx]
     yyy = sin.(xx)
-    figure()
-    plot(x,y,"o",xx,yy,"-",xx,yyy,".")
-    title("Irregular Interpolation, 10 Points")
+    plt.figure()
+    plt.plot(x,y,"o",xx,yy,"-",xx,yyy,".")
+    plt.title("Irregular Interpolation, 10 Points")
 end
 
 function bump_tests()
@@ -521,16 +528,16 @@ function bump_tests()
     yyy = [interp(pc,v) for v in xx]
     pc2 = pchip2(x,y)
     yyy2 = [interp(pc2,v) for v in xx]
-    figure()
-    plot(x,y,"o",xx,yy,"-",xx,yyy,"-",xx,yyy2,"-")
-    title("Cubic Interpolation")
-    legend(("data", "spline", "mean","quad"))
+    plt.figure()
+    plt.plot(x,y,"o",xx,yy,"-",xx,yyy,"-",xx,yyy2,"-")
+    plt.title("Cubic Interpolation")
+    plt.legend(("data", "spline", "mean","quad"))
     pc3 = pchip3(x,y)
     yyy3 = [interp(pc3,v) for v in xx]
-    figure()
-    plot(x, y, "o", xx, yyy3, "-")
-    title("PCHIP Interpolation")
-    legend(("data", "PCHIP"))
+    plt.figure()
+    plt.plot(x, y, "o", xx, yyy3, "-")
+    plt.title("PCHIP Interpolation")
+    plt.legend(("data", "PCHIP"))
 end
 
 function regular_pchip_tests()

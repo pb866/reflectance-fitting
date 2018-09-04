@@ -5,17 +5,13 @@ using Test
 unit_tests = false
 
 """
-    Parratt(n, x, thetad, lam, fractions, sigma)
+    parratt(n, x, thetad, lam, fractions, sigma)
 
 Reflectance from a multilayer mirror
 
 # PARAMETERS
-* n : array of index of refractions for stack starting with
-    index of the incident layer
-* x : array of layer thicknesses in nm for stack starting with
-    the thickness of the incident layer (usually vacuum).
-    The vacuum and substrate thicknesses should be set to
-    0.
+* n : array of index of refractions for stack starting with index of the incident layer
+* x : array of layer thicknesses in nm for stack starting with the thickness of the incident layer (usually vacuum). The vacuum and substrate thicknesses should be set to 0.
 * thetad::Float64
     incident angle in degrees
 * lam ::Float64

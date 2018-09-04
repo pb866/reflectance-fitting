@@ -20,6 +20,7 @@ using Calculus
 using LinearAlgebra
 using Test
 import Random
+import LineSearches
 
 # if true, module does unit testing
 const dotests = false
@@ -40,24 +41,31 @@ struct CurveFitResult
 end
 
 """
-    curve_fit(model, xpts, ypts, wt, p0)
+    curve_fit(model, xpts, ypts, wt, p0[, optimizer])
 
 # Parameters
-* model: function with two arguments, x (array of independent data) and p (parameters to be fit). Should return a vector with the function value at the x points.
-* xpts: independent variable for the data
-* ypts: dependent variable with the data
-* wt: array of weights for the fit. Function fit is sum(abs2, wt.*(model(x,p)-ypts))
-* p0: initial guess for fit parameters
+* ``model``: function with two arguments, x (array of independent data) and p (parameters to be fit). Should return a vector with the function value at the x points.
+* ``xpts``: independent variable for the data
+* ``ypts``: dependent variable with the data
+* ``wt``: array of weights for the fit. Function fit is sum(abs2, wt.*(model(x,p)-ypts))
+* ``p0``: initial guess for fit parameters
+* ``optimizer``: optional command to specify the optimizer to use. Choices are :BFGS and :NelderMead.
 """
-function curve_fit(model::Function, xpts::AbstractArray, ypts::AbstractArray, wt::AbstractArray, p0::Vector; kwargs...)
+function curve_fit(model::Function, xpts::AbstractArray, ypts::AbstractArray,
+        wt::AbstractArray, p0::Vector; optimizer::AbstractString="NelderMead",
+        linesearch=LineSearches.HagerZhang())
     # construct a weighted cost function, with a vector weight for each ydata
     # for example, this might be wt = 1/sigma where sigma is some error term
     f(p) = wt .* ( model(xpts, p) - ypts )
     ssq(p) = sum(abs2, f(p))
-    results = optimize(ssq, p0, BFGS(),
-        Optim.Options(x_tol = 1e-10,
-            f_tol = 1e-10,
-            iterations = 10_000))
+    options = Optim.Options(x_tol = 1e-10, f_tol = 1e-10, iterations = 10_000)
+    if optimizer=="BFGS"
+        results = optimize(ssq, p0, BFGS(linesearch=linesearch), options)
+    elseif optimizer=="NelderMead"
+        results = optimize(ssq, p0, NelderMead(linesearch=linesearch), options)
+    else
+        error("specified unknown optimizer")
+    end
     # Fill the result with useful data
     dof = length(xpts) - length(p0)
     p = Optim.minimizer(results)
