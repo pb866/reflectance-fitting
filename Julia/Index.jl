@@ -49,7 +49,7 @@ function Index(name::String)
 		end
 		(wl, n, k)
 	end
-	Index(pchip(wl,n),pchip(wl,k))
+	Index(pchip3(wl,n),pchip3(wl,k))
 end
 
 """

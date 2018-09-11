@@ -14,6 +14,7 @@ if graphicsTests | bumpTests
     import PyPlot # needed if graphicsTests is true
     const plt = PyPlot
 end
+const eps = 1e-4 # rel error allowed on extrapolation
 
 """
     CubicSpline(x,a,b,c,d)
@@ -33,7 +34,7 @@ struct CubicSpline
 end
 
 """
-    PSCHIP(x,a,b,c,d)
+    PCHIP(x,a,b,c,d)
 
 concrete type for holding the data needed
     to do a piecewise continuous hermite interpolation
@@ -236,8 +237,12 @@ function interp(cs::CubicSpline, v::Float64)
 end
 
 function interp(pc::PCHIP, v::Float64)
-    if (v<pc.x[1]) | (v>pc.x[length(pc.x)])
-        error("Extrapolation not allowed")
+
+    if v*(1+eps)<first(pc.x)
+        error("Extrapolation not allowed, $v<$(first(pc.x))")
+    end
+    if v*(1-eps)>last(pc.x)
+        error("Extrapolation not allowed, $v>$(last(pc.x))")
     end
     i = region(pc.x, v)
     phi(t) = 3*t^2 - 2*t^3
