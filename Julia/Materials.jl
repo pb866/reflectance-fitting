@@ -1,5 +1,5 @@
 """
-Read and interpret CXRO data with
+Read and interpret CXRO and other data with
 various units.
 
 # functions:
@@ -11,8 +11,13 @@ various units.
 * `lambda2e` - convert from wavelength to energy
 * `delta2` - delta for a binary compound
 * `beta2` - beta from a binary compound
+
+# types
+I've included both abstract and concrete types in this list.
+
+* `OpticalConstant` - general type for optical data
 """
-module CXRO
+module Materials
 
 using Test
 using DataFrames
@@ -20,16 +25,121 @@ using CSV
 using Interp
 using Rakic
 
-# if true, runs units tests
-const dotests = false
-const alA=26.982
-const alrho=2.70
-const fA = 18.998
-const frho = 1.0 # dummy value, it is a gas...
-const alf3rho = 2.88;
-
+export Index
 export delta, beta, f1, f2, e2lambda, lambda2e
 export delta2, beta2, CXROread, NK, index, Compound
+
+# if true, runs units tests
+const dotests = false
+
+abstract type OpticalConstant end;
+abstract type DataRange end;
+abstract type EnergyOrWavelength <: DataRange end;
+abstract type RealIndex <: DataRange end;
+abstract type ImagIndex <: DataRange end;
+abstract type Nanometer <: EnergyOrWavelength end;
+abstract type Angstrom <: EnergyOrWavelength end;
+abstract type ElectronVolt <: EnergyOrWavelength end;
+abstract type N <: RealIndex end;
+abstract type K <: ImagIndex end;
+abstract type Delta <: RealIndex end;
+abstract type Beta <: ImagIndex end;
+abstract type F1 <: RealIndex end;
+abstract type F2 <: ImagIndex end;
+
+"""
+    Interpolator
+# fields
+* pchip: (Missing or Interp.PHIP) data to interpolate index data
+"""
+struct Interpolator
+    pchip :: Union{Missing, Interp.PCHIP}
+end
+
+struct Index <: OpticalConstant
+    ew :: Angstrom
+    re :: N
+    im :: K
+    ninterp :: Interpolator
+    kinterp :: Interpolator
+end
+
+struct NK <: OpticalConstant
+    ew :: Nanometer
+    re :: N
+    im :: K
+    ninterp :: Interpolator
+    kinterp :: Interpolator
+end
+
+struct F1F2 <: OpticalConstant
+    ew :: ElectronVolt
+    re :: F1
+    im :: F2
+    f1interp :: Interpolator
+    f2interp :: Interpolator
+    A :: Float64
+end
+
+struct AngstromRange <: Angstrom
+    range::AbstractArray{Float64, 1}
+end
+
+struct NanometerRange <: Nanometer
+    range::AbstractArray{Float64, 1}
+end
+
+struct EnergyRange <: ElectronVolt
+    range::AbstractArray{Float64, 1}
+end
+
+struct NRange <: N
+    range::AbstractArray{Float64,1}
+end
+
+struct KRange <: K
+    range::AbstractArray{Float64,1}
+end
+
+struct F1Range <: F1
+    range::AbstractArray{Float64,1}
+end
+
+struct F2Range <: F2
+    range::AbstractArray{Float64,1}
+end
+
+Base.getindex(r :: DataRange, index::Int64) = r.range[index]
+Base.length(r::DataRange) = length(r.range)
+NK() = NK(EnergyRange([]), NRange([]), KRange([]), Interpolator(missing), Interpolator(missing))
+nanometers(r::AngstromRange) = r.range/10.0
+nanometers(r::NanometerRange) = r.range
+nanometers(r::EnergyRange) = e2lambda.(r.range)
+wavelength(oc::OpticalConstant) = nanometers(oc.ew)
+
+"""
+    interp(i, x)
+interpolate using an `Interpolator` `i` at the point `x`
+"""
+interp(i::Interpolator, x::Real) = Interp.interp(i.pchip, x)
+
+# Atomic database
+struct AtomicData
+    rho :: Float64
+    A :: Float64
+end
+atomic_data = Dict{AbstractString,AtomicData}()
+atomic_data["al"] = AtomicData(2.70,26.982)
+atomic_data["si"] = AtomicData(2.328,28.09)
+atomic_data["f"] = AtomicData(-1,18.998)
+atomic_data["o"] = AtomicData(-1,15.9994)
+atomic_data["ca"] = AtomicData(1.54,40.078)
+
+const alA=atomic_data["al"].A
+const alrho=atomic_data["al"].rho
+const fA = atomic_data["f"].A
+const frho = atomic_data["f"].rho
+const alf3rho = 2.88;
 
 """
     delta(rho,lambda,A,f1)
@@ -266,24 +376,34 @@ function read_test()
     end;
 end
 
-# Atomic database
-struct AtomicData
-    rho :: Float64
-    A :: Float64
-end
-atomic_data = Dict{AbstractString,AtomicData}()
-atomic_data["al"] = AtomicData(2.70,26.982)
-atomic_data["si"] = AtomicData(2.328,28.09)
-atomic_data["f"] = AtomicData(-1,18.998)
-atomic_data["o"] = AtomicData(-1,15.9994)
+"""
+    F1F2(element)
+Create an F1F2 type by reading the data from a CXRO atomic scattering
+    factors data file.
 
-struct NK
-    data :: DataFrame
-    ninterp :: Union{Missing, Interp.PCHIP}
-    kinterp :: Union{Missing, Interp.PCHIP}
-    A :: Union{Missing, Float64}
+* `element` : lowercase atomic abbreviation of element
+"""
+function F1F2(element::AbstractString)
+    data = CXROread(element)
+    ed = Array{Float64}(data[:E])
+    f1d = Array{Float64}(data[:f1])
+    f2d = Array{Float64}(data[:f2])
+    f1interp = pchip3(ed, f1d)
+    f2interp = pchip3(ed, f2d)
+    F1F2(EnergyRange(data[:E]), F1Range(data[:f1]), F2Range(data[:f2]),
+        Interpolator(f1interp), Interpolator(f2interp), atomic_data[element].A)
 end
 
+"""
+    NK(element, rho, A)
+Create an NK type by reading the data from a CXRO atomic scattering
+    factors data file.
+
+# Parameters
+* `element`: String with the element abbreviation in lower case
+* `rho`: Float64 with atomic density in g/cm^3
+* `A`: Float64 with atomic mass in g/mole
+"""
 function NK(element::AbstractString, rho::Float64, A::Float64)
     data = CXROread(element)
     lambda = e2lambda.(data[:E])
@@ -293,20 +413,15 @@ function NK(element::AbstractString, rho::Float64, A::Float64)
     wf = reverse(collect(zip(lambda,data[:f2])))
     k = [beta(rho, first(d), A, last(d)) for d in wf]
     kinterp = Interp.pchip3(reverse(lambda),k)
-    NK(data, ninterp, kinterp, A)
+    NK(NanometerRange(lambda), NRange(n), KRange(k),
+        Interpolator(ninterp), Interpolator(kinterp))
 end
 
 function NK(element::AbstractString)
     if haskey(atomic_data,element)
-        if atomic_data[element].rho > 0
-            NK(element, atomic_data[element].rho,
-                atomic_data[element].A)
-        else
-            NK(CXROread(element), missing, missing,
-                atomic_data[element].A )
-        end
+        NK(element, atomic_data[element].rho, atomic_data[element].A)
     else
-        NK(CXROread(element), missing, missing, missing)
+        error("$element is not in the atomic database")
     end
 end
 
@@ -329,73 +444,56 @@ function index(nk::NK, wl::Float64)
 	n+k*1im
 end
 
+f1(f1f2::F1F2, wl::Float64) = interp(f1f2.f1interp, wl)
+f2(f1f2::F1F2, wl::Float64) = interp(f1f2.f2interp, wl)
+
+index(nk::NK, wl::Int64) = getindex(nk, convert(Float64,wl))
+
 function nk_test()
     @testset "NK" begin
     alnk = NK("al")
-    wnk = NK("w")
-    @test alnk.A == 26.982
-    @test ismissing(wnk.ninterp)
-    @test ismissing(wnk.kinterp)
-    @test ismissing(wnk.A)
+    @test_throws Exception wnk = NK("w")
     @test isapprox(index(alnk,30.4),0.95123+0.0056009im, atol=1e-5)
     end;
 end
 
-struct Compound
-    ninterp :: Interp.PCHIP
-    kinterp :: Interp.PCHIP
-end
-
-function Compound(rho::Float64, nk1::NK, n1::Int64,
-        nk2::NK, n2::Int64)
-    E1 = reverse(nk1.data[:E])
-    f1 = reverse(nk1.data[:f1])
-    wl1 = e2lambda.(E1)
-    A1 = nk1.A
-    pchip(x::Array{Float64},
-        y::Array{Union{Missing,Float64}}) =
-        pchip3(Array{Float64}(x), Array{Float64}(y))
-    wl2 = e2lambda.(reverse(nk2.data[:E]))
-    wint = pchip(wl2,reverse(nk2.data[:f1]))
-    f2 = [interp(wint, lambda) for lambda in wl1]
-    A2 = nk2.A
-    wf = zip(wl1,f1,f2)
-    n = [1-delta2(rho, d[1], A1, n1, d[2], A2, n2, d[3]) for d in wf]
-    ninterp = pchip3(wl1, n)
-    f1 = reverse(nk1.data[:f2])
-    wint = pchip(wl2,reverse(nk2.data[:f2]))
-    f2 = [interp(wint, lambda) for lambda in wl1]
-    wf = zip(wl1,f1,f2)
-    k = [beta2(rho, d[1], A1, n1, d[2], A2, n2, d[3]) for d in wf]
-    kinterp = pchip3(wl1, k)
-    Compound(ninterp, kinterp)
-end
-
-function index(nk::Compound, wl::Float64)
-    # data has index in eV, convert wl to eV before interp
-	n = interp(nk.ninterp, wl)
-	k = interp(nk.kinterp, wl)
-	n+k*1im
-end
-
-index(nk::Union{NK, Compound}, wl::Int64) = getindex(nk, convert(Float64,wl))
-
-function compound_test()
-    @testset "compound" begin
-    ank=NK("al")
-    fnk=NK("f")
-    cmpd = Compound(2.88, ank, 1, fnk, 3)
-    @test isapprox(index(cmpd,30.4), 0.92994+0.13544im, atol=1e-5)
+function f1f2_test()
+    @testset "F1F2" begin
+    alf1f2 = F1F2("al")
+    @test isapprox(f1(alf1f2,30.4), 2.3066872, atol=1e-7)
+    @test isapprox(f2(alf1f2,30.4), 0.1764198, atol=1e-7)
     end;
 end
 
-if dotests
-    @testset "CXRO" begin
-    conversion_test()
-    molecular_conversion_test()
-    read_test()
-    nk_test()
-    compound_test()
+function Compound(rho::Float64, f1f2_1::F1F2, n1::Int64,
+        f1f2_2::F1F2, n2::Int64)
+    E1 = reverse(f1f2_1.ew.range)
+    f1 = reverse(f1f2_1.re.range)
+    wl1 = e2lambda.(E1)
+    A1 = f1f2_1.A
+    wl2 = e2lambda.(reverse(f1f2_2.ew.range))
+    wint = pchip3(wl2,reverse(f1f2_2.re.range))
+    f2 = [Interp.interp(wint, lambda) for lambda in wl1]
+    A2 = f1f2_2.A
+    wf = zip(wl1,f1,f2)
+    n = [1-delta2(rho, d[1], A1, n1, d[2], A2, n2, d[3]) for d in wf]
+    ninterp = pchip3(wl1, n)
+    f1 = reverse(f1f2_1.im.range)
+    wint = pchip3(wl2,reverse(f1f2_2.im.range))
+    f2 = [Interp.interp(wint, lambda) for lambda in wl1]
+    wf = zip(wl1,f1,f2)
+    k = [beta2(rho, d[1], A1, n1, d[2], A2, n2, d[3]) for d in wf]
+    kinterp = pchip3(wl1, k)
+    NK(NanometerRange(wl1), NRange(n), KRange(k),
+        Interpolator(ninterp), Interpolator(kinterp))
+end
+
+function compound_test()
+    @testset "compound" begin
+    af1f2=F1F2("al")
+    ff1f2=F1F2("f")
+    cmpd = Compound(2.88, af1f2, 1, ff1f2, 3)
+    @test isapprox(index(cmpd,30.4), 0.92994+0.13544im, atol=1e-5)
     end;
 end
 
@@ -411,6 +509,108 @@ function rakic()
     ninterp = Interp.pchip3(lambda, rn)
     kinterp = Interp.pchip3(lambda, rk)
     NK(df, rn, rk, A)
+end
+
+"""
+    Index(material::String)
+
+Initialize an Index type from data data in an index file.
+"""
+function Index(name::String)
+	wl, n, k = open(name*".nk") do file
+		lines = readlines(file)
+		headlines = 1
+		# Count header lines to skip them
+		while lines[headlines][1] == ';'
+			headlines += 1
+		end
+		headlines -= 1
+		# Number of data lines is the rest
+		datalines = length(lines) - headlines
+		# skip a blank line at the end if there is one
+		if length(lines[end]) == 0
+			datalines -= 1
+		end
+		wl = zeros(datalines)
+		n = zeros(datalines)
+		k = zeros(datalines)
+		for i in 1:datalines
+			sline = lines[i+headlines]
+			tokens = split(sline)
+			wlstr = tokens[1]
+			nstr = tokens[2]
+			kstr = tokens[3]
+			wl[i] = parse(Float64, wlstr)
+			n[i] = parse(Float64, nstr)
+			k[i] = parse(Float64, kstr)
+		end
+		(wl, n, k)
+	end
+	Index(AngstromRange(wl), NRange(n), KRange(k), Interpolator(pchip3(wl,n)),
+        Interpolator(pchip3(wl,k)))
+end
+
+"""
+    getindex(ndx::Index, wl::Float64)
+
+Returns a complex index of refraction at wavelength wl nm.
+
+* Example
+ndx = Index("Al")
+n = ndx[431.4]
+
+n will have the value of the index of refraction of Al at 431.4 Angstroms
+"""
+function Base.getindex(ndx::Index, wl::Float64)
+    # data has index in Angstroms, convert wl to Angstroms before interp
+	n = interp(ndx.ninterp, wl*10.0)
+	k = interp(ndx.kinterp, wl*10.0)
+	n+k*1im
+end
+
+Base.getindex(ndx::Index, wl::Int64) = getindex(ndx, convert(Float64,wl))
+
+function index_tests()
+	ndx = Index("Al")
+	@testset "Index Interpolation" begin
+		@test isapprox(interp(ndx.ninterp, 409.8),0.895,atol=0.001)
+		@test isapprox(interp(ndx.kinterp, 550.0),2.1e-2,atol=1.e-3)
+		nval = ndx[40.98]
+		n = real(nval)
+		nval = ndx[55.00]
+		k = imag(nval)
+		@test isapprox(n, 0.895, atol=0.001)
+		@test isapprox(k, 2.1e-2, atol=1.e-3)
+	end;
+end
+
+function wavelength_test()
+    # Create some fake data to test
+    imiss = Interpolator(missing)
+    ndx = Index(AngstromRange([250,260]), NRange([0.8,0.9]), KRange([0.1,0.2]),
+        imiss, imiss)
+    nk = NK(NanometerRange([18,19]), NRange([0.8,0.9]), KRange([0.1,0.2]),
+        imiss, imiss)
+    f1f2 = F1F2(EnergyRange([21.5,32.7]), F1Range([0.8, 1.2]),
+        F2Range([2.5, 0.5]), imiss, imiss, 2.5)
+    @testset "wavelength" begin
+    @test wavelength(ndx)[1] == 25
+    @test wavelength(nk)[2] == 19
+    @test isapprox(wavelength(f1f2)[1], 1239.8/21.5, rtol = 5e-5)
+    end;
+end
+
+if dotests
+    @testset "Materials" begin
+    wavelength_test()
+    index_tests()
+    conversion_test()
+    molecular_conversion_test()
+    read_test()
+    nk_test()
+    f1f2_test()
+    compound_test()
+    end;
 end
 
 end

@@ -1,6 +1,6 @@
 # Plot Al and AlF3 data using CXRO database
 
-using CXRO
+using Materials
 import PyPlot
 using LaTeXStrings
 import ALS
