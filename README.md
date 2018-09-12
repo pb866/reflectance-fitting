@@ -1,6 +1,6 @@
 # Reflectance Fitting
 
-Mathematica, Matlab, Python (and maybe other languages in the future) for fitting ALS and PMS Reflectance Data.
+Mathematica, Matlab, Python, Julia (and maybe other languages in the future) for fitting ALS and PMS Reflectance Data.
 
 This is just a place for sharing sourced code. Don't put any binary files here like Mathematica notebooks for figures.
 
